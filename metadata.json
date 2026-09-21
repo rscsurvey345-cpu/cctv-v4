@@ -1,0 +1,6 @@
+{
+  "name": "ระบบรายงานสถานการณ์สถานีขนถ่ายอ้อย โรงงานน้ำตาลราชสีมา 2569/70",
+  "description": "ระบบบันทึกและรายงานสถานการณ์สถานีขนถ่ายอ้อย 43 สถานี โรงงานน้ำตาลราชสีมา ปีการผลิต 2569/70 พร้อมระบบอัพโหลดรูปภาพตาชั่งและเครน เชื่อมต่อ Google Sheets และ Google Drive",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
