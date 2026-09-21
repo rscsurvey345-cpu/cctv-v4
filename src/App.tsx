@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { StationRecord, ViewTab, GoogleSyncConfig } from './types';
 import { loadRecords, saveRecords, loadSyncConfig, saveSyncConfig, DEFAULT_SCRIPT_WEBHOOK_URL } from './lib/storage';
+import { fetchRecordsFromGoogleSheet, mergeLocalAndCloudRecords } from './lib/syncSheet';
 import { Header } from './components/Header';
 import { RecordForm } from './components/RecordForm';
 import { RecordTable } from './components/RecordTable';
@@ -25,18 +26,93 @@ export default function App() {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [lastRefreshed, setLastRefreshed] = useState<string>('');
   const [notification, setNotification] = useState<{
     type: 'success' | 'info' | 'error';
     message: string;
   } | null>(null);
 
-  // Initialize records and sync config
+  const showNotification = (
+    message: string,
+    type: 'success' | 'info' | 'error' = 'success'
+  ) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 4500);
+  };
+
+  // Pull latest records live from Google Sheets
+  const refreshFromGoogleSheet = useCallback(
+    async (showToast = false) => {
+      const targetWebhook = syncConfig.scriptWebhookUrl || DEFAULT_SCRIPT_WEBHOOK_URL;
+      if (!targetWebhook) return;
+
+      setIsRefreshing(true);
+      try {
+        const res = await fetchRecordsFromGoogleSheet(targetWebhook);
+        if (res.success && res.records.length > 0) {
+          setRecords((prev) => {
+            const merged = mergeLocalAndCloudRecords(prev, res.records);
+            saveRecords(merged);
+            return merged;
+          });
+
+          const now = new Date();
+          const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} น.`;
+          setLastRefreshed(timeStr);
+
+          if (showToast) {
+            showNotification(`ดึงข้อมูลล่าสุดจาก Google Sheets สำเร็จ (${res.total} รายการ)`, 'success');
+          }
+        } else if (showToast && !res.success) {
+          showNotification(res.message || 'ไม่สามารถดึงข้อมูลได้', 'error');
+        }
+      } catch (err: any) {
+        console.warn('Sync error:', err);
+        if (showToast) {
+          showNotification('เกิดข้อผิดพลาดในการดึงข้อมูลจาก Google Sheets', 'error');
+        }
+      } finally {
+        setIsRefreshing(false);
+      }
+    },
+    [syncConfig.scriptWebhookUrl]
+  );
+
+  // Initialize records and sync config + fetch live sheet data
   useEffect(() => {
+    // 1. Instant load from local storage
     const loaded = loadRecords();
     setRecords(loaded);
     const loadedConfig = loadSyncConfig();
     setSyncConfig(loadedConfig);
-  }, []);
+
+    // 2. Fetch live data immediately so mobile and PC show the exact same records
+    refreshFromGoogleSheet(false);
+
+    // 3. Periodic background poll every 25 seconds
+    const interval = setInterval(() => {
+      refreshFromGoogleSheet(false);
+    }, 25000);
+
+    // 4. Auto-refresh when tab gains focus (e.g. switching between phone & computer)
+    const handleFocus = () => {
+      refreshFromGoogleSheet(false);
+    };
+    window.addEventListener('focus', handleFocus);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        refreshFromGoogleSheet(false);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [refreshFromGoogleSheet]);
 
   // Listen to Firebase Auth state
   useEffect(() => {
@@ -52,14 +128,6 @@ export default function App() {
     );
     return () => unsubscribe();
   }, []);
-
-  const showNotification = (
-    message: string,
-    type: 'success' | 'info' | 'error' = 'success'
-  ) => {
-    setNotification({ type, message });
-    setTimeout(() => setNotification(null), 4500);
-  };
 
   // Sync a single record to Google Drive & Google Sheets
   const syncRecordToGoogleServices = async (
@@ -208,6 +276,11 @@ export default function App() {
       saveRecords(updatedRecords);
 
       showNotification(`บันทึกข้อมูล ${fullRecord.stationName} และจัดเก็บรูปภาพเรียบร้อยแล้ว`);
+
+      // Refresh in background to sync newly generated drive links and IDs
+      setTimeout(() => {
+        refreshFromGoogleSheet(false);
+      }, 2500);
     } finally {
       setIsSyncing(false);
     }
@@ -222,6 +295,9 @@ export default function App() {
     const targetWebhook = syncConfig.scriptWebhookUrl || DEFAULT_SCRIPT_WEBHOOK_URL;
     if (targetWebhook) {
       syncToAppsScriptWebhook('updateRecord', updated);
+      setTimeout(() => {
+        refreshFromGoogleSheet(false);
+      }, 2000);
     }
 
     showNotification(`อัปเดตข้อมูล ${updated.stationName} สำเร็จ`);
@@ -237,6 +313,9 @@ export default function App() {
     const targetWebhook = syncConfig.scriptWebhookUrl || DEFAULT_SCRIPT_WEBHOOK_URL;
     if (targetWebhook) {
       syncToAppsScriptWebhook('deleteRecord', { id });
+      setTimeout(() => {
+        refreshFromGoogleSheet(false);
+      }, 2000);
     }
 
     showNotification(
@@ -334,6 +413,9 @@ export default function App() {
           sheetConnected: !!syncConfig.spreadsheetId || !!syncConfig.scriptWebhookUrl,
           driveConnected: !!syncConfig.driveFolderId || !!syncConfig.scriptWebhookUrl,
         }}
+        onRefreshFromGoogle={() => refreshFromGoogleSheet(true)}
+        isRefreshing={isRefreshing}
+        lastRefreshed={lastRefreshed}
       />
 
       {/* Global Toast Notification */}
@@ -375,7 +457,10 @@ export default function App() {
             onDeleteRecord={handleDeleteRecord}
             onUpdateRecord={handleUpdateRecord}
             onSyncAllToGoogle={handleSyncAllToGoogle}
+            onRefreshFromGoogle={() => refreshFromGoogleSheet(true)}
             isSyncing={isSyncing}
+            isRefreshing={isRefreshing}
+            lastRefreshed={lastRefreshed}
             googleConnected={!!user || !!syncConfig.scriptWebhookUrl}
           />
         )}

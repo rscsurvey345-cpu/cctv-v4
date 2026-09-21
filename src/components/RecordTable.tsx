@@ -26,16 +26,22 @@ import {
   FileSpreadsheet,
   CheckCircle2,
   AlertCircle,
+  RefreshCw,
+  Sparkles,
 } from 'lucide-react';
 import { PhotoModal } from './PhotoModal';
 import { EditRecordModal } from './EditRecordModal';
+import { getDriveThumbnailUrl } from '../lib/syncSheet';
 
 interface RecordTableProps {
   records: StationRecord[];
   onDeleteRecord: (id: string) => void;
   onUpdateRecord: (updated: StationRecord) => void;
   onSyncAllToGoogle: () => void;
+  onRefreshFromGoogle?: () => void;
   isSyncing: boolean;
+  isRefreshing?: boolean;
+  lastRefreshed?: string;
   googleConnected: boolean;
 }
 
@@ -44,7 +50,10 @@ export const RecordTable: React.FC<RecordTableProps> = ({
   onDeleteRecord,
   onUpdateRecord,
   onSyncAllToGoogle,
+  onRefreshFromGoogle,
   isSyncing,
+  isRefreshing = false,
+  lastRefreshed = '',
   googleConnected,
 }) => {
   const today = getCurrentThaiDate();
@@ -217,7 +226,19 @@ export const RecordTable: React.FC<RecordTableProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {onRefreshFromGoogle && (
+              <button
+                onClick={onRefreshFromGoogle}
+                disabled={isRefreshing}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold shadow-xs disabled:opacity-50 transition-all cursor-pointer"
+                title="ดึงข้อมูลล่าสุดจาก Google Sheets เพื่อให้อุปกรณ์ทุกเครื่อง (มือถือ/คอม) แสดงข้อมูลตรงกัน"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span>{isRefreshing ? 'กำลังดึงข้อมูล...' : 'ดึงข้อมูลล่าสุด (Sync)'}</span>
+              </button>
+            )}
+
             <button
               onClick={handleExportCSV}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors"
@@ -450,8 +471,9 @@ export const RecordTable: React.FC<RecordTableProps> = ({
                             className="relative group cursor-pointer w-16 h-12 rounded-lg overflow-hidden border border-slate-200 bg-slate-900 shadow-2xs"
                           >
                             <img
-                              src={rec.scaleImageUrl}
+                              src={getDriveThumbnailUrl(rec.scaleImageUrl)}
                               alt="ตาชั่ง"
+                              referrerPolicy="no-referrer"
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                             />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
@@ -518,8 +540,9 @@ export const RecordTable: React.FC<RecordTableProps> = ({
                             className="relative group cursor-pointer w-16 h-12 rounded-lg overflow-hidden border border-slate-200 bg-slate-900 shadow-2xs"
                           >
                             <img
-                              src={rec.craneImageUrl}
+                              src={getDriveThumbnailUrl(rec.craneImageUrl)}
                               alt="เครน"
+                              referrerPolicy="no-referrer"
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                             />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">

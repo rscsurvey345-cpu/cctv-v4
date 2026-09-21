@@ -13,6 +13,7 @@ import {
   Sparkles,
   ShieldCheck,
   CheckCircle2,
+  RefreshCw,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -26,6 +27,9 @@ interface HeaderProps {
     driveConnected: boolean;
     lastSynced?: string;
   };
+  onRefreshFromGoogle?: () => void;
+  isRefreshing?: boolean;
+  lastRefreshed?: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -35,6 +39,9 @@ export const Header: React.FC<HeaderProps> = ({
   isLoggingIn,
   totalRecords,
   syncStatus,
+  onRefreshFromGoogle,
+  isRefreshing = false,
+  lastRefreshed = '',
 }) => {
   const handleAuthAction = async () => {
     if (user) {
@@ -64,7 +71,24 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="hidden sm:inline">โรงงานน้ำตาลราชสีมา (43 สถานีขนถ่ายอ้อย)</span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {onRefreshFromGoogle && (
+              <button
+                onClick={onRefreshFromGoogle}
+                disabled={isRefreshing}
+                title="ดึงข้อมูลล่าสุดจาก Google Sheets เพื่อให้อุปกรณ์ทุกเครื่องแสดงข้อมูลตรงกัน"
+                className="flex items-center gap-1.5 bg-emerald-700/80 hover:bg-emerald-600 text-emerald-100 hover:text-white px-2.5 py-0.5 rounded-full transition-colors font-medium border border-emerald-600/60 cursor-pointer text-xs"
+              >
+                <RefreshCw className={`w-3 h-3 text-emerald-300 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span>{isRefreshing ? 'กำลังซิงค์...' : 'ซิงค์ข้อมูล (Cloud)'}</span>
+                {lastRefreshed && (
+                  <span className="hidden md:inline text-[10px] text-emerald-300 ml-0.5">
+                    ({lastRefreshed})
+                  </span>
+                )}
+              </button>
+            )}
+
             {user ? (
               <div className="flex items-center gap-2 bg-emerald-900/60 px-2.5 py-0.5 rounded-full border border-emerald-700/50">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />

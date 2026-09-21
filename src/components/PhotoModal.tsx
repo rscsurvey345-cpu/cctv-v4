@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, Download, RotateCw, Trash2, Upload, ZoomIn, ZoomOut } from 'lucide-react';
+import { X, Download, RotateCw, Trash2, Upload, ZoomIn, ZoomOut, ExternalLink } from 'lucide-react';
+import { getDriveThumbnailUrl } from '../lib/syncSheet';
 
 interface PhotoModalProps {
   isOpen: boolean;
@@ -28,6 +29,9 @@ export const PhotoModal: React.FC<PhotoModalProps> = ({
   const [zoom, setZoom] = useState(1);
 
   if (!isOpen) return null;
+
+  const isDriveLink = imageUrl && imageUrl.includes('drive.google.com');
+  const displaySrc = getDriveThumbnailUrl(imageUrl);
 
   const handleRotate = () => {
     setRotation((prev) => (prev + 90) % 360);
@@ -80,7 +84,7 @@ export const PhotoModal: React.FC<PhotoModalProps> = ({
 
         {/* Modal Image Body */}
         <div className="flex-1 bg-slate-950 flex items-center justify-center p-4 overflow-hidden relative min-h-[350px]">
-          {imageUrl ? (
+          {displaySrc ? (
             <div
               className="transition-transform duration-200 ease-out max-h-[60vh] flex items-center justify-center"
               style={{
@@ -88,8 +92,9 @@ export const PhotoModal: React.FC<PhotoModalProps> = ({
               }}
             >
               <img
-                src={imageUrl}
+                src={displaySrc}
                 alt={title}
+                referrerPolicy="no-referrer"
                 className="max-h-[55vh] max-w-full object-contain rounded-md shadow-lg"
               />
             </div>
@@ -106,7 +111,7 @@ export const PhotoModal: React.FC<PhotoModalProps> = ({
           <div className="flex items-center gap-1.5">
             <button
               onClick={handleZoomIn}
-              disabled={!imageUrl}
+              disabled={!displaySrc}
               title="ซูมเข้า"
               className="p-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 disabled:opacity-40 transition-colors"
             >
@@ -114,7 +119,7 @@ export const PhotoModal: React.FC<PhotoModalProps> = ({
             </button>
             <button
               onClick={handleZoomOut}
-              disabled={!imageUrl}
+              disabled={!displaySrc}
               title="ซูมออก"
               className="p-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 disabled:opacity-40 transition-colors"
             >
@@ -122,7 +127,7 @@ export const PhotoModal: React.FC<PhotoModalProps> = ({
             </button>
             <button
               onClick={handleRotate}
-              disabled={!imageUrl}
+              disabled={!displaySrc}
               title="หมุนภาพ"
               className="p-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 disabled:opacity-40 transition-colors"
             >
@@ -132,6 +137,18 @@ export const PhotoModal: React.FC<PhotoModalProps> = ({
 
           {/* Action buttons: Download, Replace, Delete */}
           <div className="flex items-center gap-2">
+            {isDriveLink && (
+              <a
+                href={imageUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-medium transition-colors shadow-xs"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>เปิดใน Google Drive</span>
+              </a>
+            )}
+
             {imageUrl && (
               <button
                 onClick={handleDownload}
