@@ -6,6 +6,7 @@ import {
   StatusMeta,
   THAI_MONTHS,
   getCurrentThaiDate,
+  getCurrentTimeSlot,
   toThaiDateFormatted,
 } from '../constants/stations';
 import { StationRecord, StatusType } from '../types';
@@ -46,7 +47,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
   const [selectedStation, setSelectedStation] = useState<string>(STATIONS[0]);
   const [stationSearch, setStationSearch] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>(initialDate.dateStr);
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>(TIME_SLOTS[0]);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>(getCurrentTimeSlot());
   const [selectedStatuses, setSelectedStatuses] = useState<StatusType[]>(['ปกติ']);
   const [note, setNote] = useState<string>('');
   const [recordedBy, setRecordedBy] = useState<string>(userEmail ? userEmail.split('@')[0] : 'เจ้าหน้าที่ขนถ่าย');
@@ -279,7 +280,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
             <div className="space-y-1.5">
               <label htmlFor="timeslot-select" className="block text-xs font-semibold text-slate-700 flex items-center justify-between">
                 <span>ช่วงเวลาบันทึก <span className="text-rose-500">*</span></span>
-                <span className="text-[11px] font-normal text-slate-500">12 ช่วงเวลา</span>
+                <span className="text-[11px] font-normal text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-medium">24 ช่วงเวลา</span>
               </label>
               <div className="relative">
                 <select
@@ -296,7 +297,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
                 </select>
               </div>
               <p className="text-[11px] text-slate-400">
-                ครอบคลุมเวลาทำงาน 08:00 - 20:00 น.
+                ครอบคลุม 24 ช่วงเวลา ตลอด 24 ชม. (เริ่ม 08:00 น. ถึง 08:00 น. วันถัดไป)
               </p>
             </div>
           </div>

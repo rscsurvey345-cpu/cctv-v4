@@ -7,6 +7,8 @@ import {
   THAI_MONTHS,
   toThaiDateFormatted,
   getCurrentThaiDate,
+  getCurrentTimeSlot,
+  normalizeTimeSlot,
 } from '../constants/stations';
 import {
   PieChart,
@@ -48,7 +50,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ records }) => {
   // Summary Period dropdown
   const [period, setPeriod] = useState<DashboardSummaryPeriod>('daily');
   const [selectedDate, setSelectedDate] = useState<string>(today.dateStr);
-  const [selectedHourSlot, setSelectedHourSlot] = useState<string>(TIME_SLOTS[0]);
+  const [selectedHourSlot, setSelectedHourSlot] = useState<string>(getCurrentTimeSlot());
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
 
   // Filter records based on selected period
@@ -66,7 +68,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ records }) => {
       return records.filter((r) => r.dateStr === selectedDate);
     }
     if (period === 'hourly') {
-      return records.filter((r) => r.dateStr === selectedDate && r.timeSlot === selectedHourSlot);
+      return records.filter(
+        (r) =>
+          r.dateStr === selectedDate &&
+          normalizeTimeSlot(r.timeSlot) === normalizeTimeSlot(selectedHourSlot)
+      );
     }
     return records;
   }, [records, period, selectedDate, selectedHourSlot, selectedMonth]);
@@ -97,10 +103,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ records }) => {
     })).filter((item) => item.value > 0);
   }, [filteredRecords]);
 
-  // Status breakdown along 12 time slots for Line/Bar comparison chart
+  // Status breakdown along 24 time slots for Line/Bar comparison chart
   const timeSlotComparisonData = useMemo(() => {
     return TIME_SLOTS.map((slot) => {
-      const slotRecords = filteredRecords.filter((r) => r.timeSlot === slot);
+      const slotRecords = filteredRecords.filter(
+        (r) => normalizeTimeSlot(r.timeSlot) === normalizeTimeSlot(slot)
+      );
       let normalCount = 0;
       let waitTruckCount = 0;
       let waitCaneCount = 0;
@@ -116,7 +124,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ records }) => {
       });
 
       return {
-        slot: slot.replace('  น.', ''),
+        slot: slot.replace(/\s*น\./, '').trim(),
         ปกติ: normalCount,
         หยุดรอรถ: waitTruckCount,
         หยุดรออ้อย: waitCaneCount,
@@ -403,14 +411,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ records }) => {
                 แนวโน้มเปรียบเทียบสถานการณ์ (กราฟเส้นรายชั่วโมง)
               </h3>
             </div>
-            <span className="text-[11px] text-slate-400 font-mono">08:00 - 20:00 น.</span>
+            <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full font-medium">
+              24 ชม. (08:00 - 08:00 น.)
+            </span>
           </div>
 
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={timeSlotComparisonData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <LineChart data={timeSlotComparisonData} margin={{ top: 10, right: 10, left: -20, bottom: 15 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="slot" tick={{ fontSize: 10 }} />
+                <XAxis
+                  dataKey="slot"
+                  tick={{ fontSize: 9 }}
+                  interval={1}
+                  angle={-30}
+                  textAnchor="end"
+                  height={35}
+                />
                 <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
                 <Tooltip
                   contentStyle={{

@@ -7,6 +7,7 @@ import {
   StatusMeta,
   toThaiDateFormatted,
   getCurrentThaiDate,
+  normalizeTimeSlot,
 } from '../constants/stations';
 import {
   TableProperties,
@@ -83,12 +84,12 @@ export const RecordTable: React.FC<RecordTableProps> = ({
     // If strict toggle is enabled: must match exact date AND exact time slot
     if (onlyExactDateAndTime) {
       if (filterDate && rec.dateStr !== filterDate) return false;
-      if (filterTimeSlot !== 'all' && rec.timeSlot !== filterTimeSlot) return false;
+      if (filterTimeSlot !== 'all' && normalizeTimeSlot(rec.timeSlot) !== normalizeTimeSlot(filterTimeSlot)) return false;
     } else {
       if (filterDate && rec.dateStr !== filterDate && filterDate !== 'all') {
         return false;
       }
-      if (filterTimeSlot !== 'all' && rec.timeSlot !== filterTimeSlot) {
+      if (filterTimeSlot !== 'all' && normalizeTimeSlot(rec.timeSlot) !== normalizeTimeSlot(filterTimeSlot)) {
         return false;
       }
     }
@@ -302,7 +303,7 @@ export const RecordTable: React.FC<RecordTableProps> = ({
               onChange={(e) => setFilterTimeSlot(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-200 outline-hidden"
             >
-              <option value="all">-- ทุกช่วงเวลา (08:00 - 20:00 น.) --</option>
+              <option value="all">-- ทุกช่วงเวลา (ตลอด 24 ชม. 08:00 - 08:00 น.) --</option>
               {TIME_SLOTS.map((slot) => (
                 <option key={slot} value={slot}>
                   {slot}

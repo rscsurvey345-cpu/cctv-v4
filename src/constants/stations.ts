@@ -47,19 +47,36 @@ export const STATIONS: string[] = [
 ];
 
 export const TIME_SLOTS: string[] = [
-  '08:00 - 09:00  น.',
-  '09:00 - 10:00  น.',
-  '10:00 - 11:00  น.',
-  '11:00 - 12:00  น.',
-  '12:00 - 13:00  น.',
-  '13:00 - 14:00  น.',
-  '14:00 - 15:00  น.',
-  '15:00 - 16:00  น.',
-  '16:00 - 17:00  น.',
-  '17:00 - 18:00  น.',
-  '18:00 - 19:00  น.',
-  '19:00 - 20:00  น.',
+  '08:00 - 09:00 น.',
+  '09:00 - 10:00 น.',
+  '10:00 - 11:00 น.',
+  '11:00 - 12:00 น.',
+  '12:00 - 13:00 น.',
+  '13:00 - 14:00 น.',
+  '14:00 - 15:00 น.',
+  '15:00 - 16:00 น.',
+  '16:00 - 17:00 น.',
+  '17:00 - 18:00 น.',
+  '18:00 - 19:00 น.',
+  '19:00 - 20:00 น.',
+  '20:00 - 21:00 น.',
+  '21:00 - 22:00 น.',
+  '22:00 - 23:00 น.',
+  '23:00 - 00:00 น.',
+  '00:00 - 01:00 น.',
+  '01:00 - 02:00 น.',
+  '02:00 - 03:00 น.',
+  '03:00 - 04:00 น.',
+  '04:00 - 05:00 น.',
+  '05:00 - 06:00 น.',
+  '06:00 - 07:00 น.',
+  '07:00 - 08:00 น.',
 ];
+
+export function normalizeTimeSlot(slot?: string): string {
+  if (!slot) return '';
+  return slot.replace(/\s+/g, ' ').trim();
+}
 
 export interface StatusMeta {
   value: StatusType;
@@ -182,7 +199,7 @@ export function toFullThaiDate(dateStr: string): string {
   const month = parseInt(monthStr, 10) - 1;
   const day = parseInt(dayStr, 10);
   const thaiYear = year + 543;
-  return `วันทีี่ ${day} ${THAI_MONTHS[month] || ''} พ.ศ. ${thaiYear}`;
+  return `วันที่ ${day} ${THAI_MONTHS[month] || ''} พ.ศ. ${thaiYear}`;
 }
 
 export function getCurrentThaiDate(): { dateStr: string; thaiFormatted: string; thaiYear: number } {
@@ -197,3 +214,17 @@ export function getCurrentThaiDate(): { dateStr: string; thaiFormatted: string; 
     thaiYear: year + 543,
   };
 }
+
+export function getCurrentTimeSlot(): string {
+  const now = new Date();
+  const currentHour = now.getHours();
+  const nextHour = (currentHour + 1) % 24;
+  const startStr = String(currentHour).padStart(2, '0') + ':00';
+  const endStr = String(nextHour).padStart(2, '0') + ':00';
+  const target = `${startStr} - ${endStr} น.`;
+  const found = TIME_SLOTS.find(
+    (slot) => normalizeTimeSlot(slot) === normalizeTimeSlot(target)
+  );
+  return found || TIME_SLOTS[0];
+}
+
