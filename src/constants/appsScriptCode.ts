@@ -26,7 +26,9 @@ export const APPS_SCRIPT_CODE = `/**
 
 const SHEET_NAME = "รายงานสถานการณ์สถานีขนถ่ายอ้อย_2569-70";
 const TAB_NAME = "ข้อมูลสถานการณ์ขนถ่าย";
+const FALLEN_CANE_TAB_NAME = "รายงานอ้อยตกหล่น";
 const ROOT_DRIVE_FOLDER_NAME = "สถานีขนถ่ายอ้อย_โรงงานน้ำตาลราชสีมา_2569-70";
+const FALLEN_CANE_FOLDER_NAME = "อ้อยตกหล่น2569/70";
 
 // ฟังก์ชันสร้างหรือดึง Google Sheet อัตโนมัติ
 function getOrCreateSheet() {
@@ -63,6 +65,42 @@ function getOrCreateSheet() {
     sheet.setFrozenRows(1);
   }
   return { spreadsheet, sheet };
+}
+
+// ฟังก์ชันสร้างหรือดึงแท็บชีต "รายงานอ้อยตกหล่น"
+function getOrCreateFallenCaneSheet(spreadsheet) {
+  let sheet = spreadsheet.getSheetByName(FALLEN_CANE_TAB_NAME);
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(FALLEN_CANE_TAB_NAME);
+    const headers = [
+      "รหัสบันทึก (ID)",
+      "วันที่ (พ.ศ.)",
+      "ชื่อสถานีขนถ่าย",
+      "บริเวณหรือจุดที่พบอ้อยตกหล่น",
+      "ปริมาณโดยประมาณ",
+      "ลิงก์รูปอ้อยตกหล่น (Google Drive)",
+      "ผู้บันทึก",
+      "เวลาที่บันทึกลงระบบ"
+    ];
+    sheet.appendRow(headers);
+    const headerRange = sheet.getRange(1, 1, 1, headers.length);
+    headerRange.setBackground("#d97706"); // Amber Dark
+    headerRange.setFontColor("#ffffff");
+    headerRange.setFontWeight("bold");
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+// ฟังก์ชันสร้างหรือดึงโฟลเดอร์ "อ้อยตกหล่น2569/70" ใต้โฟลเดอร์หลัก
+function getOrCreateFallenCaneFolder(rootFolder) {
+  const folders = rootFolder.getFoldersByName(FALLEN_CANE_FOLDER_NAME);
+  if (folders.hasNext()) {
+    return folders.next();
+  }
+  const newFolder = rootFolder.createFolder(FALLEN_CANE_FOLDER_NAME);
+  newFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return newFolder;
 }
 
 // ฟังก์ชันสร้างหรือดึงโฟลเดอร์หลัก Google Drive อัตโนมัติ
@@ -238,6 +276,61 @@ function doPost(e) {
         }
       }
     }
+
+    // 4. บันทึกข้อมูลอ้อยตกหล่น (Add Fallen Cane Record) ลงโฟลเดอร์ อ้อยตกหล่น2569/70
+    if (action === "addFallenCaneRecord") {
+      const { spreadsheet } = getOrCreateSheet();
+      const fallenSheet = getOrCreateFallenCaneSheet(spreadsheet);
+      const fallenRootFolder = getOrCreateFallenCaneFolder(rootFolder);
+      const rec = postData.record;
+      const dailyFolder = getOrCreateDailyFolder(fallenRootFolder, rec.dateStr, rec.thaiDateFormatted);
+
+      let imageUrl = "";
+      const recordId = rec.id || ("FALLEN-" + Date.now());
+      const stationClean = (rec.stationName || "สถานี").replace(/[\s\/]/g, "_");
+
+      if (rec.imageUrl) {
+        const imgName = rec.imageName || ("อ้อยตกหล่น_" + stationClean + "_" + recordId + ".jpg");
+        imageUrl = saveImageToDrive(dailyFolder, rec.imageUrl, imgName);
+      }
+
+      const newRow = [
+        recordId,
+        rec.thaiDateFormatted || "",
+        rec.stationName || "",
+        rec.note || "-",
+        rec.estimatedAmount || "-",
+        imageUrl || (rec.imageUrl ? "มีรูปภาพในระบบ" : "-"),
+        rec.recordedBy || "ผู้บันทึก",
+        new Date().toLocaleString("th-TH")
+      ];
+      fallenSheet.appendRow(newRow);
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        message: "บันทึกรายงานอ้อยตกหล่นลงโฟลเดอร์ อ้อยตกหล่น2569/70 เรียบร้อย",
+        dailyFolderName: dailyFolder.getName(),
+        dailyFolderUrl: dailyFolder.getUrl(),
+        imageUrl: imageUrl
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 5. ลบรายงานอ้อยตกหล่น
+    if (action === "deleteFallenCaneRecord") {
+      const { spreadsheet } = getOrCreateSheet();
+      const fallenSheet = getOrCreateFallenCaneSheet(spreadsheet);
+      const recordId = postData.id;
+      const data = fallenSheet.getDataRange().getValues();
+      for (let i = 1; i < data.length; i++) {
+        if (data[i][0] == recordId) {
+          fallenSheet.deleteRow(i + 1);
+          return ContentService.createTextOutput(JSON.stringify({
+            status: "success",
+            message: "ลบรายงานอ้อยตกหล่นสำเร็จ"
+          })).setMimeType(ContentService.MimeType.JSON);
+        }
+      }
+    }
     
     return ContentService.createTextOutput(JSON.stringify({
       status: "error",
@@ -258,11 +351,14 @@ function doPost(e) {
 function doGet(e) {
   try {
     const { sheet, spreadsheet } = getOrCreateSheet();
+    const fallenSheet = getOrCreateFallenCaneSheet(spreadsheet);
     const rootFolder = getOrCreateRootFolder();
+    const fallenRootFolder = getOrCreateFallenCaneFolder(rootFolder);
+    
+    // Station records
     const data = sheet.getDataRange().getValues();
     const headers = data[0];
     const rows = [];
-    
     for (let i = 1; i < data.length; i++) {
       const row = {};
       for (let j = 0; j < headers.length; j++) {
@@ -270,14 +366,29 @@ function doGet(e) {
       }
       rows.push(row);
     }
+
+    // Fallen cane records
+    const fallenData = fallenSheet.getDataRange().getValues();
+    const fallenHeaders = fallenData[0];
+    const fallenRows = [];
+    for (let i = 1; i < fallenData.length; i++) {
+      const row = {};
+      for (let j = 0; j < fallenHeaders.length; j++) {
+        row[fallenHeaders[j]] = fallenData[i][j];
+      }
+      fallenRows.push(row);
+    }
     
     return ContentService.createTextOutput(JSON.stringify({
       status: "success",
       message: "ระบบเชื่อมต่อ Google Sheet และ Google Drive สำเร็จ",
       sheetUrl: spreadsheet.getUrl(),
       driveFolderUrl: rootFolder.getUrl(),
+      fallenCaneFolderUrl: fallenRootFolder.getUrl(),
       totalRecords: rows.length,
-      data: rows
+      data: rows,
+      totalFallenCaneRecords: fallenRows.length,
+      fallenCaneData: fallenRows
     })).setMimeType(ContentService.MimeType.JSON);
     
   } catch (error) {

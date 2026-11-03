@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   CheckCircle2,
   RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -22,6 +23,7 @@ interface HeaderProps {
   user: User | null;
   isLoggingIn: boolean;
   totalRecords: number;
+  fallenCaneCount?: number;
   syncStatus: {
     sheetConnected: boolean;
     driveConnected: boolean;
@@ -38,6 +40,7 @@ export const Header: React.FC<HeaderProps> = ({
   user,
   isLoggingIn,
   totalRecords,
+  fallenCaneCount = 0,
   syncStatus,
   onRefreshFromGoogle,
   isRefreshing = false,
@@ -153,6 +156,30 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <ClipboardEdit className="w-4 h-4" />
               <span>บันทึกข้อมูล</span>
+            </button>
+
+            <button
+              id="tab-fallen-cane"
+              onClick={() => onTabChange('fallen-cane')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
+                currentTab === 'fallen-cane'
+                  ? 'bg-amber-600 text-white shadow-sm shadow-amber-600/30'
+                  : 'text-slate-600 hover:bg-amber-50 hover:text-amber-800'
+              }`}
+            >
+              <AlertTriangle className="w-4 h-4 text-amber-500" />
+              <span>รายงานอ้อยตกหล่น</span>
+              {fallenCaneCount > 0 && (
+                <span
+                  className={`text-xs px-1.5 py-0.2 rounded-full font-semibold ${
+                    currentTab === 'fallen-cane'
+                      ? 'bg-amber-700 text-amber-100'
+                      : 'bg-amber-100 text-amber-800'
+                  }`}
+                >
+                  {fallenCaneCount}
+                </span>
+              )}
             </button>
 
             <button

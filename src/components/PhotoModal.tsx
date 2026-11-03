@@ -7,9 +7,9 @@ interface PhotoModalProps {
   onClose: () => void;
   title: string;
   stationName: string;
-  timeSlot: string;
+  timeSlot?: string;
   imageUrl?: string;
-  imageType: 'scale' | 'crane';
+  imageType: 'scale' | 'crane' | 'fallen';
   onDeletePhoto?: () => void;
   onReplacePhoto?: (file: File) => void;
 }
@@ -19,7 +19,7 @@ export const PhotoModal: React.FC<PhotoModalProps> = ({
   onClose,
   title,
   stationName,
-  timeSlot,
+  timeSlot = '',
   imageUrl,
   imageType,
   onDeletePhoto,
@@ -49,9 +49,11 @@ export const PhotoModal: React.FC<PhotoModalProps> = ({
     if (!imageUrl) return;
     const link = document.createElement('a');
     link.href = imageUrl;
-    const typeLabel = imageType === 'scale' ? 'ตาชั่ง' : 'เครน';
+    const typeLabel =
+      imageType === 'scale' ? 'ตาชั่ง' : imageType === 'crane' ? 'เครน' : 'อ้อยตกหล่น';
     const cleanStation = stationName.replace(/[\(\)\/\s]/g, '_');
-    link.download = `${typeLabel}_${cleanStation}_${timeSlot.replace(/[\s\:]/g, '_')}.jpg`;
+    const slotPart = timeSlot ? `_${timeSlot.replace(/[\s\:]/g, '_')}` : '';
+    link.download = `${typeLabel}_${cleanStation}${slotPart}.jpg`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

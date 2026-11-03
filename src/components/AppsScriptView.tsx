@@ -242,13 +242,22 @@ export const AppsScriptView: React.FC<AppsScriptViewProps> = ({
               <span>📁 สถานีขนถ่ายอ้อย_โรงงานน้ำตาลราชสีมา_2569-70/</span>
             </div>
             <div className="pl-5 flex items-center gap-1.5 text-teal-800 font-semibold">
-              <span>↳ 📂 วันที่ 21 มีนาคม 2569/</span>
+              <span>↳ 📂 วันที่ 21 มีนาคม 2569/ (รูปตาชั่งและเครน)</span>
             </div>
-            <div className="pl-10 text-[11px] text-slate-600 flex items-center gap-1">
-              <ImageIcon className="w-3 h-3 text-slate-400" /> ตาชั่ง_เครนขามสะแกแสง1_08-10น.jpg
+            <div className="pl-9 text-[11px] text-slate-600 flex items-center gap-1">
+              <ImageIcon className="w-3 h-3 text-slate-400" /> ตาชั่ง_ขามสะแกแสง1_0800.jpg
             </div>
-            <div className="pl-10 text-[11px] text-slate-600 flex items-center gap-1">
-              <ImageIcon className="w-3 h-3 text-slate-400" /> เครน_เครนขามสะแกแสง1_08-10น.jpg
+            <div className="pl-9 text-[11px] text-slate-600 flex items-center gap-1">
+              <ImageIcon className="w-3 h-3 text-slate-400" /> เครน_ขามสะแกแสง1_0800.jpg
+            </div>
+            <div className="pl-5 flex items-center gap-1.5 text-amber-800 font-semibold pt-1">
+              <span>↳ 📂 อ้อยตกหล่น2569/70/ (หัวข้อที่ 4)</span>
+            </div>
+            <div className="pl-9 text-amber-700 font-medium flex items-center gap-1">
+              <span>↳ 📁 วันที่ 21 มีนาคม 2569/</span>
+            </div>
+            <div className="pl-14 text-[11px] text-slate-600 flex items-center gap-1">
+              <ImageIcon className="w-3 h-3 text-amber-600" /> อ้อยตกหล่น_ขามสะแกแสง1_0930.jpg
             </div>
           </div>
         </div>

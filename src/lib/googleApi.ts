@@ -263,3 +263,66 @@ export async function uploadBase64ImageToDrive(
 
   return response.json();
 }
+
+export async function createOrGetFallenCaneFolder(
+  accessToken: string,
+  parentFolderId: string
+): Promise<DriveFolderResult> {
+  const folderName = 'อ้อยตกหล่น2569/70';
+
+  // Check if exists under parent
+  const searchRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(
+      `name='${folderName}' and '${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
+    )}&fields=files(id,webViewLink)`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+
+  if (searchRes.ok) {
+    const searchData = await searchRes.json();
+    if (searchData.files && searchData.files.length > 0) {
+      return {
+        folderId: searchData.files[0].id,
+        folderUrl: searchData.files[0].webViewLink,
+      };
+    }
+  }
+
+  // Create folder under parent
+  const response = await fetch('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: folderName,
+      mimeType: 'application/vnd.google-apps.folder',
+      parents: [parentFolderId],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error('ไม่สามารถสร้างโฟลเดอร์ อ้อยตกหล่น2569/70 ใน Google Drive ได้');
+  }
+
+  const data = await response.json();
+  return {
+    folderId: data.id,
+    folderUrl: `https://drive.google.com/drive/folders/${data.id}`,
+  };
+}
+
+export async function createFallenCaneDailyDriveFolder(
+  accessToken: string,
+  rootFolderId: string,
+  dailyFolderName: string
+): Promise<DriveFolderResult> {
+  // First ensure "อ้อยตกหล่น2569/70" exists inside root folder
+  const fallenCaneFolder = await createOrGetFallenCaneFolder(accessToken, rootFolderId);
+
+  // Then create or get daily subfolder inside "อ้อยตกหล่น2569/70"
+  return createDailyDriveFolder(accessToken, fallenCaneFolder.folderId, dailyFolderName);
+}

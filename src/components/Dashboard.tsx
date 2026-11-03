@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { StationRecord, StatusType, DashboardSummaryPeriod } from '../types';
+import { StationRecord, StatusType, DashboardSummaryPeriod, FallenCaneRecord } from '../types';
 import {
   STATUS_LIST,
   TIME_SLOTS,
@@ -38,13 +38,27 @@ import {
   Layers,
   MapPin,
   Flame,
+  Eye,
+  Download,
+  FolderTree,
+  ExternalLink,
+  AlertOctagon,
+  Trash2,
 } from 'lucide-react';
+import { PhotoModal } from './PhotoModal';
+import { getDriveThumbnailUrl } from '../lib/syncSheet';
 
 interface DashboardProps {
   records: StationRecord[];
+  fallenCaneRecords?: FallenCaneRecord[];
+  onDeleteFallenCane?: (id: string) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ records }) => {
+export const Dashboard: React.FC<DashboardProps> = ({
+  records,
+  fallenCaneRecords = [],
+  onDeleteFallenCane,
+}) => {
   const today = getCurrentThaiDate();
 
   // Summary Period dropdown
@@ -52,6 +66,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ records }) => {
   const [selectedDate, setSelectedDate] = useState<string>(today.dateStr);
   const [selectedHourSlot, setSelectedHourSlot] = useState<string>(getCurrentTimeSlot());
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
+
+  // Photo modal state for fallen cane or station images
+  const [activePhotoModal, setActivePhotoModal] = useState<{
+    title: string;
+    stationName: string;
+    url: string;
+    timeSlot?: string;
+  } | null>(null);
+
+  // Calendar filter for Fallen Sugarcane
+  const [fallenFilterDate, setFallenFilterDate] = useState<string>('all');
+
+  const filteredFallenCaneRecords = useMemo(() => {
+    if (fallenFilterDate === 'all') return fallenCaneRecords;
+    return fallenCaneRecords.filter((r) => r.dateStr === fallenFilterDate);
+  }, [fallenCaneRecords, fallenFilterDate]);
 
   // Filter records based on selected period
   const filteredRecords = useMemo(() => {
@@ -177,6 +207,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ records }) => {
     0
   );
   const normalPercentage = totalCount > 0 ? Math.round((normalCount / totalCount) * 100) : 0;
+
+  // Render Pie Label with 50% reduced font size (ลดขนาด font ให้เล็กลง 1 เท่าตัว)
+  const renderReducedFontPieLabel = ({
+    cx,
+    cy,
+    midAngle,
+    innerRadius,
+    outerRadius,
+    percent,
+  }: any) => {
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+    if ((percent || 0) < 0.05) return null;
+    return (
+      <text
+        x={x}
+        y={y}
+        fill="#ffffff"
+        textAnchor="middle"
+        dominantBaseline="central"
+        style={{
+          fontSize: '7.5px', // ลดขนาด font ลง 1 เท่าตัว (จากเดิม 14-15px)
+          fontWeight: 'bold',
+          textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+          pointerEvents: 'none',
+        }}
+      >
+        {`${((percent || 0) * 100).toFixed(0)}%`}
+      </text>
+    );
+  };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -375,7 +438,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ records }) => {
                     outerRadius={85}
                     paddingAngle={3}
                     dataKey="value"
-                    label={({ name, percent }: any) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                    label={renderReducedFontPieLabel}
                     labelLine={false}
                   >
                     {pieData.map((entry, index) => (
@@ -386,12 +449,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ records }) => {
                     formatter={(val: any) => [`${val ?? 0} ครั้ง/สถานี`, 'จำนวน']}
                     contentStyle={{
                       backgroundColor: '#ffffff',
-                      borderRadius: '12px',
+                      borderRadius: '10px',
                       border: '1px solid #e2e8f0',
-                      fontSize: '12px',
+                      fontSize: '8.5px', // ลดขนาด font เล็กลง 1 เท่าตัว (จากเดิม 14-16px)
+                      padding: '4px 8px',
                     }}
                   />
-                  <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                  <Legend
+                    verticalAlign="bottom"
+                    height={32}
+                    iconType="circle"
+                    iconSize={7}
+                    wrapperStyle={{
+                      fontSize: '7.5px', // ลดขนาด font เล็กลง 1 เท่าตัว (จากเดิม 14px)
+                      paddingTop: '6px',
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -422,22 +495,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ records }) => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis
                   dataKey="slot"
-                  tick={{ fontSize: 9 }}
+                  tick={{ fontSize: 5.5 }}
                   interval={1}
                   angle={-30}
                   textAnchor="end"
-                  height={35}
+                  height={30}
                 />
-                <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 5.5 }} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: '#ffffff',
-                    borderRadius: '12px',
+                    borderRadius: '8px',
                     border: '1px solid #e2e8f0',
-                    fontSize: '12px',
+                    fontSize: '6.5px',
+                    padding: '3px 6px',
                   }}
                 />
-                <Legend verticalAlign="bottom" height={36} iconType="plainline" />
+                <Legend
+                  verticalAlign="bottom"
+                  height={28}
+                  iconType="plainline"
+                  iconSize={6}
+                  wrapperStyle={{
+                    fontSize: '6.5px',
+                    paddingTop: '4px',
+                  }}
+                />
                 <Line
                   type="monotone"
                   dataKey="ปกติ"
@@ -546,6 +629,237 @@ export const Dashboard: React.FC<DashboardProps> = ({ records }) => {
           </div>
         )}
       </div>
+
+      {/* Bottom Section: Fallen Sugarcane Summary Table (สรุปรายงานอ้อยตกหล่น) */}
+      <div className="bg-white rounded-2xl p-6 border-2 border-amber-200 shadow-xs space-y-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-amber-100 pb-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 shadow-2xs">
+              <AlertTriangle className="w-5 h-5 text-amber-600" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900">
+                สรุปรายงานอ้อยตกหล่น ประจำสถานีขนถ่าย (ปีการผลิต 2569/70)
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                ตารางรายงานสถานการณ์อ้อยตกหล่นประจำสถานีขนถ่าย
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Calendar filter for date selection */}
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-300 rounded-xl px-3 py-1.5 text-xs">
+              <Calendar className="w-4 h-4 text-amber-600" />
+              <span className="text-amber-900 font-semibold">เลือกวันที่:</span>
+              <input
+                type="date"
+                value={fallenFilterDate === 'all' ? '' : fallenFilterDate}
+                onChange={(e) => setFallenFilterDate(e.target.value || 'all')}
+                className="bg-white border border-amber-300 rounded-lg px-2 py-1 text-xs text-slate-800 outline-hidden font-medium"
+              />
+              {fallenFilterDate !== 'all' && (
+                <button
+                  type="button"
+                  onClick={() => setFallenFilterDate('all')}
+                  className="text-amber-800 hover:text-amber-950 underline font-semibold text-[11px] cursor-pointer ml-1"
+                >
+                  แสดงทั้งหมด
+                </button>
+              )}
+            </div>
+
+            <div className="bg-amber-100/80 text-amber-900 text-xs px-3 py-1.5 rounded-xl font-bold">
+              รวม {filteredFallenCaneRecords.length} รายการ
+            </div>
+          </div>
+        </div>
+
+        {/* Fallen Sugarcane Summary Metric Strip (Filtered) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3">
+            <span className="text-[11px] font-semibold text-amber-800">สถานีที่พบรายงาน</span>
+            <div className="text-xl font-bold text-amber-950 mt-1">
+              {new Set(filteredFallenCaneRecords.map((r) => r.stationName)).size} สถานี
+            </div>
+            <span className="text-[10px] text-amber-700">จากทั้งหมด 43 สถานีขนถ่าย</span>
+          </div>
+
+          <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3">
+            <span className="text-[11px] font-semibold text-amber-800">รูปภาพบันทึกในระบบ</span>
+            <div className="text-xl font-bold text-amber-950 mt-1">
+              {filteredFallenCaneRecords.filter((r) => r.imageUrl).length} ภาพ
+            </div>
+            <span className="text-[10px] text-amber-700">ขนาด 5*4 ซม.</span>
+          </div>
+        </div>
+
+        {/* Table with Strictly Sized 5*4 cm photos */}
+        {filteredFallenCaneRecords.length > 0 ? (
+          <div className="overflow-x-auto rounded-xl border border-amber-200 shadow-2xs">
+            <table className="w-full text-left text-xs text-slate-700 divide-y divide-amber-100">
+              <thead className="bg-amber-100/70 text-amber-950 text-[11px] uppercase font-bold">
+                <tr>
+                  <th className="py-3 px-3 text-center w-12">ลำดับ</th>
+                  <th className="py-3 px-4 min-w-[130px]">วันที่บันทึก (พ.ศ.)</th>
+                  <th className="py-3 px-4 min-w-[180px]">สถานีขนถ่าย (จาก 43 จุด)</th>
+                  <th className="py-3 px-4 text-center min-w-[220px]">
+                    รูปภาพอ้อยตกหล่น (ขนาด 5*4 ซม.)
+                  </th>
+                  <th className="py-3 px-3 text-center w-24">จัดการ</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-amber-100 bg-white">
+                {filteredFallenCaneRecords.map((item, index) => {
+                  const displayImg = getDriveThumbnailUrl(item.imageUrl) || item.imageUrl;
+                  return (
+                    <tr key={item.id} className="hover:bg-amber-50/40 transition-colors">
+                      {/* Index */}
+                      <td className="py-3 px-3 text-center font-bold text-slate-600">
+                        {index + 1}
+                      </td>
+
+                      {/* Thai Date */}
+                      <td className="py-3 px-4 font-semibold text-slate-800">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span>{item.thaiDateFormatted}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 block ml-5">
+                          พ.ศ. {item.buddhistYear}
+                        </span>
+                      </td>
+
+                      {/* Station Name */}
+                      <td className="py-3 px-4 font-bold text-slate-900">
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>{item.stationName}</span>
+                        </div>
+                      </td>
+
+                      {/* Photo strictly sized at 5*4 cm */}
+                      <td className="py-3 px-4 text-center">
+                        <div className="flex flex-col items-center justify-center gap-1">
+                          {displayImg ? (
+                            <div
+                              onClick={() =>
+                                setActivePhotoModal({
+                                  title: `รูปอ้อยตกหล่น - ${item.stationName}`,
+                                  stationName: item.stationName,
+                                  url: item.imageUrl,
+                                })
+                              }
+                              className="group relative cursor-pointer overflow-hidden rounded-lg border-2 border-amber-300 shadow-xs bg-slate-950 flex items-center justify-center transition-transform hover:scale-[1.02]"
+                              style={{
+                                width: '5cm',
+                                height: '4cm',
+                              }}
+                              title="คลิกเพื่อดูภาพขยาย"
+                            >
+                              <img
+                                src={displayImg}
+                                alt={`อ้อยตกหล่น ${item.stationName}`}
+                                referrerPolicy="no-referrer"
+                                className="w-[5cm] h-[4cm] max-w-[5cm] max-h-[4cm] object-cover transition-opacity group-hover:opacity-90"
+                                style={{
+                                  width: '5cm',
+                                  height: '4cm',
+                                  objectFit: 'cover',
+                                }}
+                              />
+                              <div className="absolute inset-0 bg-slate-950/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                <span className="bg-white/95 text-slate-800 font-bold text-[11px] px-2.5 py-1 rounded-md shadow-xs flex items-center gap-1">
+                                  <Eye className="w-3.5 h-3.5 text-amber-600" />
+                                  <span>คลิกดูภาพขยาย</span>
+                                </span>
+                              </div>
+                              <span className="absolute bottom-1 right-1 bg-black/75 text-amber-200 text-[9px] font-mono px-1.5 py-0.5 rounded-sm">
+                                5×4 ซม.
+                              </span>
+                            </div>
+                          ) : (
+                            <div
+                              className="rounded-lg border-2 border-dashed border-amber-300 bg-amber-50 flex items-center justify-center text-amber-700 text-[11px]"
+                              style={{ width: '5cm', height: '4cm' }}
+                            >
+                              ไม่มีรูปภาพ
+                            </div>
+                          )}
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            ขนาดรูปภาพ: 5 ซม. × 4 ซม.
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3 px-3 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {displayImg && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setActivePhotoModal({
+                                  title: `รูปอ้อยตกหล่น - ${item.stationName}`,
+                                  stationName: item.stationName,
+                                  url: item.imageUrl,
+                                })
+                              }
+                              title="ดูภาพขยาย"
+                              className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 transition-colors cursor-pointer"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                          )}
+                          {onDeleteFallenCane && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`ต้องการลบรายงานอ้อยตกหล่นของ ${item.stationName} หรือไม่?`)) {
+                                onDeleteFallenCane(item.id);
+                                }
+                              }}
+                              title="ลบรายงาน"
+                              className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-10 bg-amber-50/30 rounded-xl border border-dashed border-amber-200 text-slate-500 text-xs">
+            <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+            <p className="font-semibold text-slate-700">
+              {fallenFilterDate !== 'all'
+                ? `ไม่พบรายงานอ้อยตกหล่นในวันที่ ${toThaiDateFormatted(fallenFilterDate)}`
+                : 'ยังไม่มีรายงานอ้อยตกหล่นในระบบ'}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-1">
+              สามารถบันทึกข้อมูลและแนบรูปภาพอ้อยตกหล่นได้ที่แท็บ รายงานอ้อยตกหล่น
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* High-res Image Viewing Modal for Dashboard */}
+      {activePhotoModal && (
+        <PhotoModal
+          isOpen={true}
+          onClose={() => setActivePhotoModal(null)}
+          title={activePhotoModal.title}
+          stationName={activePhotoModal.stationName}
+          timeSlot="อ้อยตกหล่น"
+          imageUrl={activePhotoModal.url}
+          imageType="fallen"
+        />
+      )}
     </div>
   );
 };

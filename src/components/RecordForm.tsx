@@ -19,8 +19,6 @@ import {
   Download,
   Eye,
   Check,
-  Calendar,
-  Clock,
   MapPin,
   FileCheck,
   RotateCcw,
@@ -52,7 +50,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
   const [note, setNote] = useState<string>('');
   const [recordedBy, setRecordedBy] = useState<string>(userEmail ? userEmail.split('@')[0] : 'เจ้าหน้าที่ขนถ่าย');
 
-  // Photo states
+  // Photo states (Station record)
   const [scaleImage, setScaleImage] = useState<{
     url: string;
     name: string;
@@ -67,6 +65,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
     type: 'scale' | 'crane';
     title: string;
     url?: string;
+    stationName?: string;
   } | null>(null);
 
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
@@ -115,10 +114,9 @@ export const RecordForm: React.FC<RecordFormProps> = ({
     }
   };
 
-  // Thai Buddhist Year representation
-  const [yearStr, monthStr, dayStr] = selectedDate.split('-');
+  // Thai Buddhist Year representation for Station Record
+  const [yearStr] = selectedDate.split('-');
   const thaiYear = parseInt(yearStr, 10) + 543;
-  const monthIdx = parseInt(monthStr, 10) - 1;
   const formattedThaiDate = toThaiDateFormatted(selectedDate);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -604,7 +602,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
           </div>
         </div>
 
-        {/* Section 4: Remarks & Recorder */}
+        {/* Section 4: Remarks & Recorder for Station Record */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div className="md:col-span-2 space-y-1.5">
             <label htmlFor="note-textarea" className="block text-xs font-semibold text-slate-700">
@@ -669,7 +667,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
           isOpen={true}
           onClose={() => setActivePhotoModal(null)}
           title={activePhotoModal.title}
-          stationName={selectedStation}
+          stationName={activePhotoModal.stationName || selectedStation}
           timeSlot={selectedTimeSlot}
           imageUrl={activePhotoModal.url}
           imageType={activePhotoModal.type}

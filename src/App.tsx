@@ -1,9 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { StationRecord, ViewTab, GoogleSyncConfig } from './types';
-import { loadRecords, saveRecords, loadSyncConfig, saveSyncConfig, DEFAULT_SCRIPT_WEBHOOK_URL } from './lib/storage';
+import { StationRecord, FallenCaneRecord, ViewTab, GoogleSyncConfig } from './types';
+import {
+  loadRecords,
+  saveRecords,
+  loadFallenCaneRecords,
+  saveFallenCaneRecords,
+  loadSyncConfig,
+  saveSyncConfig,
+  DEFAULT_SCRIPT_WEBHOOK_URL,
+} from './lib/storage';
 import { fetchRecordsFromGoogleSheet, mergeLocalAndCloudRecords } from './lib/syncSheet';
 import { Header } from './components/Header';
 import { RecordForm } from './components/RecordForm';
+import { FallenCaneForm } from './components/FallenCaneForm';
 import { RecordTable } from './components/RecordTable';
 import { Dashboard } from './components/Dashboard';
 import { AppsScriptView } from './components/AppsScriptView';
@@ -12,6 +21,7 @@ import {
   createSugarcaneSheet,
   createDriveFolder,
   createDailyDriveFolder,
+  createFallenCaneDailyDriveFolder,
   uploadBase64ImageToDrive,
   appendRecordToSheet,
 } from './lib/googleApi';
@@ -21,6 +31,7 @@ import { FileSpreadsheet, HardDrive, CheckCircle2, AlertCircle } from 'lucide-re
 export default function App() {
   const [currentTab, setCurrentTab] = useState<ViewTab>('record');
   const [records, setRecords] = useState<StationRecord[]>([]);
+  const [fallenCaneRecords, setFallenCaneRecords] = useState<FallenCaneRecord[]>([]);
   const [syncConfig, setSyncConfig] = useState<GoogleSyncConfig>({ autoSync: true });
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -84,6 +95,8 @@ export default function App() {
     // 1. Instant load from local storage
     const loaded = loadRecords();
     setRecords(loaded);
+    const loadedFallen = loadFallenCaneRecords();
+    setFallenCaneRecords(loadedFallen);
     const loadedConfig = loadSyncConfig();
     setSyncConfig(loadedConfig);
 
@@ -324,6 +337,95 @@ export default function App() {
     );
   };
 
+  // Save Fallen Sugarcane Record handler
+  const handleSaveFallenCaneRecord = async (
+    recordData: Omit<FallenCaneRecord, 'id' | 'createdAt' | 'updatedAt'>
+  ) => {
+    setIsSyncing(true);
+    try {
+      const id = `FALLEN-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      let fullRecord: FallenCaneRecord = {
+        ...recordData,
+        id,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        syncedToGoogleSheet: false,
+      };
+
+      // 1. If signed in with Google, upload directly into "อ้อยตกหล่น2569/70/วันที่..."
+      const currentToken = accessToken || (await getAccessToken());
+      if (currentToken) {
+        try {
+          let rootFolderId = syncConfig.driveFolderId;
+          if (!rootFolderId) {
+            const folderRes = await createDriveFolder(currentToken);
+            rootFolderId = folderRes.folderId;
+            const updatedConfig = { ...syncConfig, driveFolderId: rootFolderId };
+            setSyncConfig(updatedConfig);
+            saveSyncConfig(updatedConfig);
+          }
+
+          if (rootFolderId && fullRecord.imageUrl && fullRecord.imageUrl.startsWith('data:image')) {
+            const dailyFolderName = `วันที่ ${fullRecord.thaiDateFormatted || fullRecord.dateStr}`;
+            const dailyFolder = await createFallenCaneDailyDriveFolder(
+              currentToken,
+              rootFolderId,
+              dailyFolderName
+            );
+            const fileName =
+              fullRecord.imageName ||
+              `อ้อยตกหล่น_${fullRecord.stationName.replace(/[\s\/]/g, '_')}_${id}.jpg`;
+            const uploadRes = await uploadBase64ImageToDrive(
+              currentToken,
+              dailyFolder.folderId,
+              fileName,
+              fullRecord.imageUrl
+            );
+            fullRecord.driveUrl = uploadRes.webViewLink;
+            fullRecord.syncedToGoogleSheet = true;
+          }
+        } catch (driveErr) {
+          console.warn('Fallen cane drive direct upload notice:', driveErr);
+        }
+      }
+
+      // 2. Sync to Apps Script webhook (Permanent connection)
+      const targetWebhook = syncConfig.scriptWebhookUrl || DEFAULT_SCRIPT_WEBHOOK_URL;
+      if (targetWebhook) {
+        await syncToAppsScriptWebhook('addFallenCaneRecord', fullRecord);
+        fullRecord.syncedToGoogleSheet = true;
+      }
+
+      const updated = [fullRecord, ...fallenCaneRecords];
+      setFallenCaneRecords(updated);
+      saveFallenCaneRecords(updated);
+      showNotification(
+        `บันทึกรายงานอ้อยตกหล่น (${fullRecord.stationName}) จัดเก็บลงโฟลเดอร์ Google Drive "อ้อยตกหล่น2569/70" สำเร็จ`,
+        'success'
+      );
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Delete Fallen Sugarcane Record handler
+  const handleDeleteFallenCaneRecord = (id: string) => {
+    const target = fallenCaneRecords.find((r) => r.id === id);
+    const newRecords = fallenCaneRecords.filter((r) => r.id !== id);
+    setFallenCaneRecords(newRecords);
+    saveFallenCaneRecords(newRecords);
+
+    const targetWebhook = syncConfig.scriptWebhookUrl || DEFAULT_SCRIPT_WEBHOOK_URL;
+    if (targetWebhook) {
+      syncToAppsScriptWebhook('deleteFallenCaneRecord', { id });
+    }
+
+    showNotification(
+      `ลบรายงานอ้อยตกหล่น ${target ? target.stationName : ''} เรียบร้อยแล้ว`,
+      'info'
+    );
+  };
+
   // Batch sync all unsynced records to Google
   const handleSyncAllToGoogle = async () => {
     setIsSyncing(true);
@@ -409,6 +511,7 @@ export default function App() {
         user={user}
         isLoggingIn={isLoggingIn}
         totalRecords={records.length}
+        fallenCaneCount={fallenCaneRecords.length}
         syncStatus={{
           sheetConnected: !!syncConfig.spreadsheetId || !!syncConfig.scriptWebhookUrl,
           driveConnected: !!syncConfig.driveFolderId || !!syncConfig.scriptWebhookUrl,
@@ -451,6 +554,16 @@ export default function App() {
           />
         )}
 
+        {currentTab === 'fallen-cane' && (
+          <FallenCaneForm
+            onSaveFallenCane={handleSaveFallenCaneRecord}
+            onDeleteFallenCane={handleDeleteFallenCaneRecord}
+            fallenCaneRecords={fallenCaneRecords}
+            isSyncing={isSyncing}
+            userEmail={user?.email}
+          />
+        )}
+
         {currentTab === 'table' && (
           <RecordTable
             records={records}
@@ -465,7 +578,13 @@ export default function App() {
           />
         )}
 
-        {currentTab === 'dashboard' && <Dashboard records={records} />}
+        {currentTab === 'dashboard' && (
+          <Dashboard
+            records={records}
+            fallenCaneRecords={fallenCaneRecords}
+            onDeleteFallenCane={handleDeleteFallenCaneRecord}
+          />
+        )}
 
         {currentTab === 'appsscript' && (
           <AppsScriptView
