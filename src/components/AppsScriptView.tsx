@@ -224,6 +224,34 @@ export const AppsScriptView: React.FC<AppsScriptViewProps> = ({
         </div>
       </div>
 
+      {/* Connected Google Sheet Target Banner */}
+      <div className="bg-amber-500/10 border-2 border-amber-500/30 rounded-2xl p-5 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="bg-amber-600 text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+              Google Sheet เป้าหมาย
+            </span>
+            <span className="font-mono text-xs font-bold text-amber-900">
+              ID: 1sWtO4fwScHbvDmu0PrGhFn3__k4QIBjlvDe70Rdokjw
+            </span>
+          </div>
+          <p className="text-xs text-amber-800">
+            ระบบจะบันทึกสถานการณ์ลงแท็บ <strong>"ข้อมูลสถานการณ์ขนถ่าย"</strong> และบันทึกอ้อยตกหล่นลงแท็บ <strong>"รายงานอ้อยตกหล่น"</strong> โดยแยกกันอย่างชัดเจน พร้อมบันทึกรูปภาพใน Google Drive ที่เดียวกับชีตนี้
+          </p>
+        </div>
+
+        <a
+          href="https://docs.google.com/spreadsheets/d/1sWtO4fwScHbvDmu0PrGhFn3__k4QIBjlvDe70Rdokjw/edit"
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs whitespace-nowrap shadow-xs transition-colors shrink-0"
+        >
+          <FileSpreadsheet className="w-4 h-4" />
+          <span>เปิด Google Sheet</span>
+          <ExternalLink className="w-3.5 h-3.5" />
+        </a>
+      </div>
+
       {/* Feature Highlight: Daily Folder Structure */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white rounded-2xl p-5 border border-emerald-100 shadow-xs space-y-3">
@@ -232,17 +260,17 @@ export const AppsScriptView: React.FC<AppsScriptViewProps> = ({
               <FolderSync className="w-4 h-4" />
             </div>
             <div>
-              <h4>จัดเก็บรูปภาพเป็นโฟลเดอร์รายวัน (Daily Folders)</h4>
-              <p className="text-[11px] text-slate-500 font-normal">ระบบจำแนกและเก็บรูปอย่างเป็นระเบียบใน Google Drive</p>
+              <h4>จัดเก็บรูปภาพใน Google Drive ที่เดียวกับ Google Sheet</h4>
+              <p className="text-[11px] text-slate-500 font-normal">ระบบจำแนกและเก็บรูปอย่างเป็นระเบียบแยกโฟลเดอร์รายวัน</p>
             </div>
           </div>
           <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs space-y-1.5 font-mono text-slate-700">
             <div className="flex items-center gap-1.5 font-bold text-emerald-900">
               <HardDrive className="w-3.5 h-3.5 text-emerald-600" />
-              <span>📁 สถานีขนถ่ายอ้อย_โรงงานน้ำตาลราชสีมา_2569-70/</span>
+              <span>📁 [โฟลเดอร์ Google Drive เดียวกับ Google Sheet]/</span>
             </div>
             <div className="pl-5 flex items-center gap-1.5 text-teal-800 font-semibold">
-              <span>↳ 📂 วันที่ 21 มีนาคม 2569/ (รูปตาชั่งและเครน)</span>
+              <span>↳ 📂 วันที่ .../ (รูปตาชั่งและเครน)</span>
             </div>
             <div className="pl-9 text-[11px] text-slate-600 flex items-center gap-1">
               <ImageIcon className="w-3 h-3 text-slate-400" /> ตาชั่ง_ขามสะแกแสง1_0800.jpg
@@ -251,13 +279,13 @@ export const AppsScriptView: React.FC<AppsScriptViewProps> = ({
               <ImageIcon className="w-3 h-3 text-slate-400" /> เครน_ขามสะแกแสง1_0800.jpg
             </div>
             <div className="pl-5 flex items-center gap-1.5 text-amber-800 font-semibold pt-1">
-              <span>↳ 📂 อ้อยตกหล่น2569/70/ (หัวข้อที่ 4)</span>
+              <span>↳ 📂 อ้อยตกหล่น2569/70/ (โฟลเดอร์รายงานอ้อยตกหล่น)</span>
             </div>
             <div className="pl-9 text-amber-700 font-medium flex items-center gap-1">
-              <span>↳ 📁 วันที่ 21 มีนาคม 2569/</span>
+              <span>↳ 📁 วันที่ .../</span>
             </div>
             <div className="pl-14 text-[11px] text-slate-600 flex items-center gap-1">
-              <ImageIcon className="w-3 h-3 text-amber-600" /> อ้อยตกหล่น_ขามสะแกแสง1_0930.jpg
+              <ImageIcon className="w-3 h-3 text-amber-600" /> อ้อยตกหล่น_ขามสะแกแสง1_...jpg
             </div>
           </div>
         </div>

@@ -59,8 +59,8 @@ export const RecordTable: React.FC<RecordTableProps> = ({
 }) => {
   const today = getCurrentThaiDate();
 
-  // Filters
-  const [filterDate, setFilterDate] = useState<string>(today.dateStr);
+  // Filters (default to 'all' so all real records from Google Sheet appear immediately)
+  const [filterDate, setFilterDate] = useState<string>('all');
   const [filterTimeSlot, setFilterTimeSlot] = useState<string>('all');
   const [filterStation, setFilterStation] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');

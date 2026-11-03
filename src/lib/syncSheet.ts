@@ -1,6 +1,6 @@
-import { StationRecord, StatusType } from '../types';
+import { StationRecord, StatusType, FallenCaneRecord } from '../types';
 import { THAI_SHORT_MONTHS } from '../constants/stations';
-import { DEFAULT_SCRIPT_WEBHOOK_URL } from './storage';
+import { DEFAULT_SCRIPT_WEBHOOK_URL, TARGET_SPREADSHEET_ID } from './storage';
 
 /**
  * Extracts direct thumbnail URL for Google Drive view links
@@ -120,14 +120,76 @@ export function parseSheetRowToRecord(row: Record<string, any>, index: number): 
 }
 
 /**
+ * Parses a single Google Sheet row into a FallenCaneRecord
+ */
+export function parseFallenCaneSheetRowToRecord(
+  row: Record<string, any>,
+  index: number
+): FallenCaneRecord {
+  const id = row['รหัสบันทึก (ID)'] || `FALLEN-SHEET-${index}`;
+  const stationName = row['ชื่อสถานีขนถ่าย'] || 'ไม่ระบุสถานี';
+  const { thaiFormatted, dateStr, buddhistYear } = formatSheetDate(row['วันที่ (พ.ศ.)']);
+  const note = (!row['หมายเหตุ'] || row['หมายเหตุ'] === '-')
+    ? (row['บริเวณหรือจุดที่พบอ้อยตกหล่น'] ? String(row['บริเวณหรือจุดที่พบอ้อยตกหล่น']) : '')
+    : String(row['หมายเหตุ']);
+  const recordedBy = row['ผู้บันทึก'] || 'ผู้บันทึก';
+  const imageUrl = (!row['ลิงก์รูปอ้อยตกหล่น (Google Drive)'] || row['ลิงก์รูปอ้อยตกหล่น (Google Drive)'] === '-')
+    ? ''
+    : String(row['ลิงก์รูปอ้อยตกหล่น (Google Drive)']);
+
+  let createdAt = Date.now();
+  if (row['เวลาที่บันทึกลงระบบ']) {
+    const parsed = Date.parse(row['เวลาที่บันทึกลงระบบ']);
+    if (!isNaN(parsed)) {
+      createdAt = parsed;
+    }
+  }
+
+  return {
+    id,
+    stationName,
+    dateStr,
+    thaiDateFormatted: thaiFormatted,
+    buddhistYear,
+    imageUrl,
+    imageName: imageUrl ? `อ้อยตกหล่น_${stationName}` : undefined,
+    driveUrl: imageUrl,
+    note,
+    recordedBy,
+    createdAt,
+    updatedAt: createdAt,
+    syncedToGoogleSheet: true,
+  };
+}
+
+export interface FetchSheetResult {
+  success: boolean;
+  records: StationRecord[];
+  total: number;
+  fallenCaneRecords: FallenCaneRecord[];
+  totalFallenCane: number;
+  message?: string;
+  sheetUrl?: string;
+  driveFolderUrl?: string;
+  spreadsheetId?: string;
+}
+
+/**
  * Fetches all records live from Google Apps Script Web App
  */
 export async function fetchRecordsFromGoogleSheet(
   webhookUrl?: string
-): Promise<{ success: boolean; records: StationRecord[]; total: number; message?: string }> {
+): Promise<FetchSheetResult> {
   const targetUrl = (webhookUrl && webhookUrl.trim()) ? webhookUrl.trim() : DEFAULT_SCRIPT_WEBHOOK_URL;
   if (!targetUrl) {
-    return { success: false, records: [], total: 0, message: 'ไม่มี Webhook URL' };
+    return {
+      success: false,
+      records: [],
+      total: 0,
+      fallenCaneRecords: [],
+      totalFallenCane: 0,
+      message: 'ไม่มี Webhook URL',
+    };
   }
 
   try {
@@ -139,26 +201,44 @@ export async function fetchRecordsFromGoogleSheet(
     });
 
     if (!res.ok) {
-      return { success: false, records: [], total: 0, message: `HTTP Error: ${res.status}` };
+      return {
+        success: false,
+        records: [],
+        total: 0,
+        fallenCaneRecords: [],
+        totalFallenCane: 0,
+        message: `HTTP Error: ${res.status}`,
+      };
     }
 
     const json = await res.json();
-    if (json.status === 'success' && Array.isArray(json.data)) {
-      const parsedRecords: StationRecord[] = json.data
-        .map((row: any, i: number) => parseSheetRowToRecord(row, i))
-        .reverse(); // Newest first
+    if (json.status === 'success') {
+      const parsedRecords: StationRecord[] = Array.isArray(json.data)
+        ? json.data.map((row: any, i: number) => parseSheetRowToRecord(row, i)).reverse()
+        : [];
+
+      const parsedFallenCane: FallenCaneRecord[] = Array.isArray(json.fallenCaneData)
+        ? json.fallenCaneData.map((row: any, i: number) => parseFallenCaneSheetRowToRecord(row, i)).reverse()
+        : [];
 
       return {
         success: true,
         records: parsedRecords,
         total: parsedRecords.length,
+        fallenCaneRecords: parsedFallenCane,
+        totalFallenCane: parsedFallenCane.length,
         message: 'ดึงข้อมูลสำเร็จ',
+        sheetUrl: json.sheetUrl || `https://docs.google.com/spreadsheets/d/${TARGET_SPREADSHEET_ID}/edit`,
+        driveFolderUrl: json.driveFolderUrl,
+        spreadsheetId: json.spreadsheetId || TARGET_SPREADSHEET_ID,
       };
     } else {
       return {
         success: false,
         records: [],
         total: 0,
+        fallenCaneRecords: [],
+        totalFallenCane: 0,
         message: json.message || 'โครงสร้างข้อมูลไม่ถูกต้อง',
       };
     }
@@ -167,6 +247,8 @@ export async function fetchRecordsFromGoogleSheet(
       success: false,
       records: [],
       total: 0,
+      fallenCaneRecords: [],
+      totalFallenCane: 0,
       message: err.message || 'ไม่สามารถติดต่อ Google Apps Script ได้',
     };
   }
@@ -189,5 +271,21 @@ export function mergeLocalAndCloudRecords(
   const unsyncedLocal = localRecords.filter((r) => !r.syncedToGoogleSheet && !cloudMap.has(r.id));
 
   // Combine unsynced local records at top, then cloud records
+  return [...unsyncedLocal, ...cloudRecords];
+}
+
+/**
+ * Merges local fallen cane records and cloud records seamlessly
+ */
+export function mergeLocalAndCloudFallenCaneRecords(
+  localRecords: FallenCaneRecord[],
+  cloudRecords: FallenCaneRecord[]
+): FallenCaneRecord[] {
+  if (cloudRecords.length === 0) return localRecords;
+
+  const cloudMap = new Map<string, FallenCaneRecord>();
+  cloudRecords.forEach((r) => cloudMap.set(r.id, r));
+
+  const unsyncedLocal = localRecords.filter((r) => !r.syncedToGoogleSheet && !cloudMap.has(r.id));
   return [...unsyncedLocal, ...cloudRecords];
 }

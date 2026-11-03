@@ -8,8 +8,13 @@ import {
   loadSyncConfig,
   saveSyncConfig,
   DEFAULT_SCRIPT_WEBHOOK_URL,
+  TARGET_SPREADSHEET_ID,
 } from './lib/storage';
-import { fetchRecordsFromGoogleSheet, mergeLocalAndCloudRecords } from './lib/syncSheet';
+import {
+  fetchRecordsFromGoogleSheet,
+  mergeLocalAndCloudRecords,
+  mergeLocalAndCloudFallenCaneRecords,
+} from './lib/syncSheet';
 import { Header } from './components/Header';
 import { RecordForm } from './components/RecordForm';
 import { FallenCaneForm } from './components/FallenCaneForm';
@@ -24,6 +29,9 @@ import {
   createFallenCaneDailyDriveFolder,
   uploadBase64ImageToDrive,
   appendRecordToSheet,
+  getSpreadsheetParentFolderId,
+  appendFallenCaneRecordToGoogleSheetDirect,
+  fetchFallenCaneRecordsFromGoogleSheetApi,
 } from './lib/googleApi';
 import { User } from 'firebase/auth';
 import { FileSpreadsheet, HardDrive, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -61,12 +69,42 @@ export default function App() {
       setIsRefreshing(true);
       try {
         const res = await fetchRecordsFromGoogleSheet(targetWebhook);
-        if (res.success && res.records.length > 0) {
-          setRecords((prev) => {
-            const merged = mergeLocalAndCloudRecords(prev, res.records);
-            saveRecords(merged);
-            return merged;
-          });
+        if (res.success) {
+          if (res.records.length > 0) {
+            setRecords((prev) => {
+              const merged = mergeLocalAndCloudRecords(prev, res.records);
+              saveRecords(merged);
+              return merged;
+            });
+          }
+
+          if (res.fallenCaneRecords && res.fallenCaneRecords.length > 0) {
+            setFallenCaneRecords((prev) => {
+              const mergedFallen = mergeLocalAndCloudFallenCaneRecords(prev, res.fallenCaneRecords);
+              saveFallenCaneRecords(mergedFallen);
+              return mergedFallen;
+            });
+          }
+
+          // If signed in with Google, also check Google Sheets API directly for fallen cane
+          const token = accessToken || (await getAccessToken());
+          if (token) {
+            try {
+              const directFallen = await fetchFallenCaneRecordsFromGoogleSheetApi(
+                token,
+                TARGET_SPREADSHEET_ID
+              );
+              if (directFallen && directFallen.length > 0) {
+                setFallenCaneRecords((prev) => {
+                  const mergedFallen = mergeLocalAndCloudFallenCaneRecords(prev, directFallen);
+                  saveFallenCaneRecords(mergedFallen);
+                  return mergedFallen;
+                });
+              }
+            } catch (apiErr) {
+              console.warn('Direct Google Sheet API fallen cane check:', apiErr);
+            }
+          }
 
           const now = new Date();
           const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} น.`;
@@ -87,7 +125,7 @@ export default function App() {
         setIsRefreshing(false);
       }
     },
-    [syncConfig.scriptWebhookUrl]
+    [syncConfig.scriptWebhookUrl, accessToken]
   );
 
   // Initialize records and sync config + fetch live sheet data
@@ -352,24 +390,23 @@ export default function App() {
         syncedToGoogleSheet: false,
       };
 
-      // 1. If signed in with Google, upload directly into "อ้อยตกหล่น2569/70/วันที่..."
+      let uploadedDriveUrl = '';
+
+      // 1. Direct Google Workspace sync (if user is signed in with Google)
       const currentToken = accessToken || (await getAccessToken());
       if (currentToken) {
         try {
-          let rootFolderId = syncConfig.driveFolderId;
-          if (!rootFolderId) {
-            const folderRes = await createDriveFolder(currentToken);
-            rootFolderId = folderRes.folderId;
-            const updatedConfig = { ...syncConfig, driveFolderId: rootFolderId };
-            setSyncConfig(updatedConfig);
-            saveSyncConfig(updatedConfig);
-          }
+          // Get the parent folder of the spreadsheet so images are placed in the exact same folder as the Google Sheet
+          const sheetParentFolderId = await getSpreadsheetParentFolderId(
+            currentToken,
+            TARGET_SPREADSHEET_ID
+          );
 
-          if (rootFolderId && fullRecord.imageUrl && fullRecord.imageUrl.startsWith('data:image')) {
+          if (fullRecord.imageUrl && fullRecord.imageUrl.startsWith('data:image')) {
             const dailyFolderName = `วันที่ ${fullRecord.thaiDateFormatted || fullRecord.dateStr}`;
             const dailyFolder = await createFallenCaneDailyDriveFolder(
               currentToken,
-              rootFolderId,
+              sheetParentFolderId,
               dailyFolderName
             );
             const fileName =
@@ -381,28 +418,46 @@ export default function App() {
               fileName,
               fullRecord.imageUrl
             );
-            fullRecord.driveUrl = uploadRes.webViewLink;
-            fullRecord.syncedToGoogleSheet = true;
+            uploadedDriveUrl = uploadRes.webViewLink;
+            fullRecord.driveUrl = uploadedDriveUrl;
           }
+
+          // Append directly to Google Sheet tab "รายงานอ้อยตกหล่น" in 1sWtO4fwScHbvDmu0PrGhFn3__k4QIBjlvDe70Rdokjw
+          await appendFallenCaneRecordToGoogleSheetDirect(
+            currentToken,
+            TARGET_SPREADSHEET_ID,
+            fullRecord,
+            uploadedDriveUrl
+          );
+          fullRecord.syncedToGoogleSheet = true;
         } catch (driveErr) {
-          console.warn('Fallen cane drive direct upload notice:', driveErr);
+          console.warn('Direct Google API save notice:', driveErr);
         }
       }
 
       // 2. Sync to Apps Script webhook (Permanent connection)
       const targetWebhook = syncConfig.scriptWebhookUrl || DEFAULT_SCRIPT_WEBHOOK_URL;
       if (targetWebhook) {
-        await syncToAppsScriptWebhook('addFallenCaneRecord', fullRecord);
+        await syncToAppsScriptWebhook('addFallenCaneRecord', {
+          ...fullRecord,
+          imageUrl: uploadedDriveUrl || fullRecord.imageUrl,
+        });
         fullRecord.syncedToGoogleSheet = true;
       }
 
       const updated = [fullRecord, ...fallenCaneRecords];
       setFallenCaneRecords(updated);
       saveFallenCaneRecords(updated);
+
       showNotification(
-        `บันทึกรายงานอ้อยตกหล่น (${fullRecord.stationName}) จัดเก็บลงโฟลเดอร์ Google Drive "อ้อยตกหล่น2569/70" สำเร็จ`,
+        `บันทึกรายงานอ้อยตกหล่น (${fullRecord.stationName}) ลง Google Sheet (1sWtO4fwScHbvDmu0PrGhFn3__k4QIBjlvDe70Rdokjw) เรียบร้อยแล้ว`,
         'success'
       );
+
+      // Trigger background sync to keep all devices updated
+      setTimeout(() => {
+        refreshFromGoogleSheet(false);
+      }, 2500);
     } finally {
       setIsSyncing(false);
     }
@@ -418,6 +473,9 @@ export default function App() {
     const targetWebhook = syncConfig.scriptWebhookUrl || DEFAULT_SCRIPT_WEBHOOK_URL;
     if (targetWebhook) {
       syncToAppsScriptWebhook('deleteFallenCaneRecord', { id });
+      setTimeout(() => {
+        refreshFromGoogleSheet(false);
+      }, 2000);
     }
 
     showNotification(

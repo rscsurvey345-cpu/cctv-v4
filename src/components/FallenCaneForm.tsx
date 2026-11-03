@@ -288,7 +288,7 @@ export const FallenCaneForm: React.FC<FallenCaneFormProps> = ({
                     สถานี: <strong>{fallenStation}</strong> • วันที่: {formattedFallenThaiDate}
                   </p>
                   <p className="text-[11px] text-amber-700 mt-0.5">
-                    บันทึกใน Google Drive: อ้อยตกหล่น2569/70 &gt; วันที่ {formattedFallenThaiDate}
+                    บันทึกลง Google Sheet (1sWtO4fwScHbvDmu0PrGhFn3__k4QIBjlvDe70Rdokjw) และ Google Drive โฟลเดอร์ "อ้อยตกหล่น2569/70"
                   </p>
                 </div>
               </div>
@@ -392,7 +392,7 @@ export const FallenCaneForm: React.FC<FallenCaneFormProps> = ({
             <FileCheck className="w-4 h-4" />
             <span>
               {isSaving
-                ? 'กำลังบันทึกลง Google Drive...'
+                ? 'กำลังบันทึกลง Google Sheet & Drive...'
                 : 'บันทึกรายงานอ้อยตกหล่น'}
             </span>
           </button>
