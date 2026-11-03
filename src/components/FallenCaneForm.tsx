@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   STATIONS,
   getCurrentThaiDate,
@@ -43,6 +43,7 @@ export const FallenCaneForm: React.FC<FallenCaneFormProps> = ({
   // Form states
   const [fallenStation, setFallenStation] = useState<string>(STATIONS[0]);
   const [fallenDate, setFallenDate] = useState<string>(initialDate.dateStr);
+  const [historyFilterDate, setHistoryFilterDate] = useState<string>('all');
   const [fallenImage, setFallenImage] = useState<{
     url: string;
     name: string;
@@ -64,6 +65,12 @@ export const FallenCaneForm: React.FC<FallenCaneFormProps> = ({
   const [fallenYearStr] = fallenDate.split('-');
   const fallenThaiYear = parseInt(fallenYearStr, 10) + 543;
   const formattedFallenThaiDate = toThaiDateFormatted(fallenDate);
+
+  // Filtered history records by selected date
+  const filteredHistoryRecords = useMemo(() => {
+    if (historyFilterDate === 'all') return fallenCaneRecords;
+    return fallenCaneRecords.filter((r) => r.dateStr === historyFilterDate);
+  }, [fallenCaneRecords, historyFilterDate]);
 
   // Handle image upload & compression
   const handleImageUpload = async (file: File) => {
@@ -228,7 +235,7 @@ export const FallenCaneForm: React.FC<FallenCaneFormProps> = ({
           </div>
         </div>
 
-        {/* 3. Photo Attachment with 5*4 cm indication */}
+        {/* 3. Photo Attachment */}
         <div className="space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
             <span className="font-semibold text-slate-700 flex items-center gap-1.5">
@@ -236,7 +243,7 @@ export const FallenCaneForm: React.FC<FallenCaneFormProps> = ({
               แนบรูปถ่ายอ้อยตกหล่น <span className="text-rose-500">*</span>
             </span>
             <span className="text-[11px] text-slate-500">
-              แสดงในตารางแดชบอร์ดสรุปขนาด 5*4 เซนติเมตร
+              จัดเก็บรูปภาพแยกโฟลเดอร์รายวัน
             </span>
           </div>
 
@@ -266,9 +273,6 @@ export const FallenCaneForm: React.FC<FallenCaneFormProps> = ({
                       <span>ดูภาพขยาย</span>
                     </span>
                   </div>
-                  <span className="absolute bottom-1 right-1 bg-black/75 text-amber-200 text-[9px] font-mono px-1.5 py-0.5 rounded-sm">
-                    5×4 ซม.
-                  </span>
                 </div>
 
                 <div className="min-w-0">
@@ -334,7 +338,7 @@ export const FallenCaneForm: React.FC<FallenCaneFormProps> = ({
                 คลิกเพื่อถ่ายรูป หรือ เลือกรูปถ่ายอ้อยตกหล่น
               </p>
               <p className="text-xs text-slate-500 mt-1">
-                รองรับไฟล์ภาพ JPG, PNG จากกล้องมือถือหรือไฟล์คอมพิวเตอร์ (ขนาด 5*4 ซม.)
+                รองรับไฟล์ภาพ JPG, PNG จากกล้องมือถือหรือไฟล์คอมพิวเตอร์
               </p>
             </div>
           )}
@@ -397,21 +401,48 @@ export const FallenCaneForm: React.FC<FallenCaneFormProps> = ({
 
       {/* History of Fallen Cane records */}
       <div className="bg-white rounded-2xl p-6 border border-amber-200 shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-amber-100 pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-amber-100 pb-3 gap-3">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-600" />
             <h3 className="text-sm font-bold text-slate-900">
               ประวัติการบันทึกรายงานอ้อยตกหล่น
             </h3>
           </div>
-          <span className="text-xs bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-0.5 rounded-full font-semibold">
-            รวม {fallenCaneRecords.length} รายการ
-          </span>
+
+          {/* Calendar Date Filter */}
+          <div className="flex items-center flex-wrap gap-2">
+            <div className="flex items-center gap-1.5 bg-amber-50/80 border border-amber-300 rounded-xl px-2.5 py-1">
+              <Calendar className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+              <span className="text-[11px] font-semibold text-amber-900">เลือกวันที่:</span>
+              <input
+                type="date"
+                value={historyFilterDate === 'all' ? '' : historyFilterDate}
+                onChange={(e) => setHistoryFilterDate(e.target.value || 'all')}
+                className="text-xs text-slate-800 bg-transparent border-0 focus:outline-hidden font-medium cursor-pointer"
+                title="เลือกวันที่เพื่อกรองรูปภาพอ้อยตกหล่น"
+              />
+              {historyFilterDate !== 'all' && (
+                <button
+                  type="button"
+                  onClick={() => setHistoryFilterDate('all')}
+                  className="text-amber-800 hover:text-amber-950 underline font-semibold text-[11px] cursor-pointer ml-1"
+                >
+                  แสดงทั้งหมด
+                </button>
+              )}
+            </div>
+
+            <span className="text-xs bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-xl font-semibold">
+              {historyFilterDate !== 'all'
+                ? `พบ ${filteredHistoryRecords.length} / ${fallenCaneRecords.length} รายการ`
+                : `รวม ${fallenCaneRecords.length} รายการ`}
+            </span>
+          </div>
         </div>
 
-        {fallenCaneRecords.length > 0 ? (
+        {filteredHistoryRecords.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {fallenCaneRecords.map((item) => {
+            {filteredHistoryRecords.map((item) => {
               const displayImg = getDriveThumbnailUrl(item.imageUrl) || item.imageUrl;
               return (
                 <div
@@ -429,7 +460,7 @@ export const FallenCaneForm: React.FC<FallenCaneFormProps> = ({
                       </span>
                     </div>
 
-                    {/* 5*4 cm image preview */}
+                    {/* Image preview (5x4 cm aspect ratio) */}
                     <div className="flex justify-center">
                       <div
                         onClick={() =>
@@ -452,9 +483,6 @@ export const FallenCaneForm: React.FC<FallenCaneFormProps> = ({
                         <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <Eye className="w-5 h-5 text-white" />
                         </div>
-                        <span className="absolute bottom-1 right-1 bg-black/75 text-amber-200 text-[9px] font-mono px-1 py-0.5 rounded-xs">
-                          5×4 ซม.
-                        </span>
                       </div>
                     </div>
 
@@ -509,8 +537,21 @@ export const FallenCaneForm: React.FC<FallenCaneFormProps> = ({
             })}
           </div>
         ) : (
-          <div className="text-center py-6 text-slate-400 text-xs">
-            ยังไม่มีรายการบันทึกอ้อยตกหล่น
+          <div className="text-center py-8 text-slate-400 text-xs flex flex-col items-center gap-2">
+            <p>
+              {historyFilterDate !== 'all'
+                ? `ไม่พบรายการบันทึกอ้อยตกหล่นในวันที่ ${toThaiDateFormatted(historyFilterDate)}`
+                : 'ยังไม่มีรายการบันทึกอ้อยตกหล่น'}
+            </p>
+            {historyFilterDate !== 'all' && (
+              <button
+                type="button"
+                onClick={() => setHistoryFilterDate('all')}
+                className="text-amber-700 hover:text-amber-900 text-xs underline font-semibold cursor-pointer"
+              >
+                แสดงประวัติทั้งหมด
+              </button>
+            )}
           </div>
         )}
       </div>

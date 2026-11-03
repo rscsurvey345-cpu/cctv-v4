@@ -690,11 +690,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div className="text-xl font-bold text-amber-950 mt-1">
               {filteredFallenCaneRecords.filter((r) => r.imageUrl).length} ภาพ
             </div>
-            <span className="text-[10px] text-amber-700">ขนาด 5*4 ซม.</span>
+            <span className="text-[10px] text-amber-700">จัดเก็บแยกโฟลเดอร์รายวัน</span>
           </div>
         </div>
 
-        {/* Table with Strictly Sized 5*4 cm photos */}
+        {/* Table with photos */}
         {filteredFallenCaneRecords.length > 0 ? (
           <div className="overflow-x-auto rounded-xl border border-amber-200 shadow-2xs">
             <table className="w-full text-left text-xs text-slate-700 divide-y divide-amber-100">
@@ -704,7 +704,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <th className="py-3 px-4 min-w-[130px]">วันที่บันทึก (พ.ศ.)</th>
                   <th className="py-3 px-4 min-w-[180px]">สถานีขนถ่าย (จาก 43 จุด)</th>
                   <th className="py-3 px-4 text-center min-w-[220px]">
-                    รูปภาพอ้อยตกหล่น (ขนาด 5*4 ซม.)
+                    รูปภาพอ้อยตกหล่น
                   </th>
                   <th className="py-3 px-3 text-center w-24">จัดการ</th>
                 </tr>
@@ -738,7 +738,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                       </td>
 
-                      {/* Photo strictly sized at 5*4 cm */}
+                      {/* Photo display */}
                       <td className="py-3 px-4 text-center">
                         <div className="flex flex-col items-center justify-center gap-1">
                           {displayImg ? (
@@ -774,9 +774,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                   <span>คลิกดูภาพขยาย</span>
                                 </span>
                               </div>
-                              <span className="absolute bottom-1 right-1 bg-black/75 text-amber-200 text-[9px] font-mono px-1.5 py-0.5 rounded-sm">
-                                5×4 ซม.
-                              </span>
                             </div>
                           ) : (
                             <div
@@ -786,9 +783,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                               ไม่มีรูปภาพ
                             </div>
                           )}
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            ขนาดรูปภาพ: 5 ซม. × 4 ซม.
-                          </span>
                         </div>
                       </td>
 
