@@ -107,15 +107,21 @@ export function saveFallenCaneRecords(records: FallenCaneRecord[]): void {
 }
 
 export const DEFAULT_SCRIPT_WEBHOOK_URL =
-  'https://script.google.com/macros/s/AKfycbxZm2IDpZvXFdEnFvExW1v3c3lPO8ieG6blsQxHDQkURJXdafI8aKI5b6BuCRcn2jGAuA/exec';
+  'https://script.google.com/macros/s/AKfycbxL9Lrb9MnoEMVXy6YjOW0Uf-CB2UuXt-lz4rUIXF-e-hHu9Dy60NP3oCTK6jmYvw__5A/exec';
 
 export function loadSyncConfig(): GoogleSyncConfig {
   try {
     const saved = localStorage.getItem(SYNC_CONFIG_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Ensure the permanent webhook URL and target spreadsheet are set
-      if (!parsed.scriptWebhookUrl || typeof parsed.scriptWebhookUrl !== 'string' || !parsed.scriptWebhookUrl.trim()) {
+      // Ensure the permanent webhook URL and target spreadsheet are set (and migrate from old urls if needed)
+      if (
+        !parsed.scriptWebhookUrl ||
+        typeof parsed.scriptWebhookUrl !== 'string' ||
+        !parsed.scriptWebhookUrl.trim() ||
+        parsed.scriptWebhookUrl.includes('AKfycbxZm2IDpZvX') ||
+        parsed.scriptWebhookUrl.includes('AKfycbziEQRUmWsvMM6Ee')
+      ) {
         parsed.scriptWebhookUrl = DEFAULT_SCRIPT_WEBHOOK_URL;
       }
       parsed.spreadsheetId = TARGET_SPREADSHEET_ID;
