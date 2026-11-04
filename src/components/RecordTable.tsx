@@ -26,13 +26,11 @@ import {
   Upload,
   FileSpreadsheet,
   CheckCircle2,
-  AlertCircle,
   RefreshCw,
-  Sparkles,
 } from 'lucide-react';
 import { PhotoModal } from './PhotoModal';
 import { EditRecordModal } from './EditRecordModal';
-import { getDriveThumbnailUrl } from '../lib/syncSheet';
+import { getDriveThumbnailUrl, getDriveFallbackUrl } from '../lib/syncSheet';
 
 interface RecordTableProps {
   records: StationRecord[];
@@ -469,16 +467,25 @@ export const RecordTable: React.FC<RecordTableProps> = ({
                                 timeSlot: rec.timeSlot,
                               })
                             }
-                            className="relative group cursor-pointer w-16 h-12 rounded-lg overflow-hidden border border-slate-200 bg-slate-900 shadow-2xs"
+                            className="relative group cursor-pointer w-20 h-14 rounded-xl overflow-hidden border border-slate-200 bg-slate-900 shadow-xs flex items-center justify-center transition-all hover:scale-105"
+                            title="คลิกเพื่อดูภาพขยาย"
                           >
                             <img
-                              src={getDriveThumbnailUrl(rec.scaleImageUrl)}
-                              alt="ตาชั่ง"
+                              src={getDriveThumbnailUrl(rec.scaleImageUrl, 400)}
+                              alt={`ตาชั่ง ${rec.stationName}`}
                               referrerPolicy="no-referrer"
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                              loading="lazy"
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.currentTarget;
+                                const fallback = getDriveFallbackUrl(rec.scaleImageUrl);
+                                if (fallback && target.src !== fallback) {
+                                  target.src = fallback;
+                                }
+                              }}
                             />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                              <Eye className="w-3.5 h-3.5" />
+                              <Eye className="w-4 h-4" />
                             </div>
                           </div>
                           <div className="flex items-center gap-1">
@@ -506,7 +513,7 @@ export const RecordTable: React.FC<RecordTableProps> = ({
                           </div>
                         </div>
                       ) : (
-                        <label className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-dashed border-slate-300 hover:border-emerald-500 text-slate-500 hover:text-emerald-700 cursor-pointer text-[10px] transition-colors">
+                        <label className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-slate-300 hover:border-emerald-500 text-slate-500 hover:text-emerald-700 cursor-pointer text-[10px] transition-colors">
                           <Upload className="w-3 h-3" />
                           <span>เพิ่มรูป</span>
                           <input
@@ -538,16 +545,25 @@ export const RecordTable: React.FC<RecordTableProps> = ({
                                 timeSlot: rec.timeSlot,
                               })
                             }
-                            className="relative group cursor-pointer w-16 h-12 rounded-lg overflow-hidden border border-slate-200 bg-slate-900 shadow-2xs"
+                            className="relative group cursor-pointer w-20 h-14 rounded-xl overflow-hidden border border-slate-200 bg-slate-900 shadow-xs flex items-center justify-center transition-all hover:scale-105"
+                            title="คลิกเพื่อดูภาพขยาย"
                           >
                             <img
-                              src={getDriveThumbnailUrl(rec.craneImageUrl)}
-                              alt="เครน"
+                              src={getDriveThumbnailUrl(rec.craneImageUrl, 400)}
+                              alt={`เครน ${rec.stationName}`}
                               referrerPolicy="no-referrer"
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                              loading="lazy"
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.currentTarget;
+                                const fallback = getDriveFallbackUrl(rec.craneImageUrl);
+                                if (fallback && target.src !== fallback) {
+                                  target.src = fallback;
+                                }
+                              }}
                             />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                              <Eye className="w-3.5 h-3.5" />
+                              <Eye className="w-4 h-4" />
                             </div>
                           </div>
                           <div className="flex items-center gap-1">
@@ -575,7 +591,7 @@ export const RecordTable: React.FC<RecordTableProps> = ({
                           </div>
                         </div>
                       ) : (
-                        <label className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-dashed border-slate-300 hover:border-teal-500 text-slate-500 hover:text-teal-700 cursor-pointer text-[10px] transition-colors">
+                        <label className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-slate-300 hover:border-teal-500 text-slate-500 hover:text-teal-700 cursor-pointer text-[10px] transition-colors">
                           <Upload className="w-3 h-3" />
                           <span>เพิ่มรูป</span>
                           <input

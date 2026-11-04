@@ -46,7 +46,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { PhotoModal } from './PhotoModal';
-import { getDriveThumbnailUrl } from '../lib/syncSheet';
+import { getDriveThumbnailUrl, getDriveFallbackUrl } from '../lib/syncSheet';
 
 interface DashboardProps {
   records: StationRecord[];
@@ -766,6 +766,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                   width: '5cm',
                                   height: '4cm',
                                   objectFit: 'cover',
+                                }}
+                                onError={(e) => {
+                                  const target = e.currentTarget;
+                                  const fallback = getDriveFallbackUrl(item.imageUrl);
+                                  if (fallback && target.src !== fallback) {
+                                    target.src = fallback;
+                                  }
                                 }}
                               />
                               <div className="absolute inset-0 bg-slate-950/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">

@@ -8,16 +8,54 @@ import {
 } from './storage';
 
 /**
- * Extracts direct thumbnail URL for Google Drive view links
+ * Extracts Google Drive file ID from various link styles
  */
-export function getDriveThumbnailUrl(url?: string): string {
+export function extractGoogleDriveFileId(url?: string): string | null {
+  if (!url) return null;
+  const str = String(url).trim();
+  if (!str || str === '-' || str.startsWith('data:image')) return null;
+
+  const dMatch = str.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (dMatch && dMatch[1]) return dMatch[1];
+
+  const idMatch = str.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (idMatch && idMatch[1]) return idMatch[1];
+
+  if (/^[a-zA-Z0-9_-]{25,}$/.test(str)) return str;
+
+  return null;
+}
+
+/**
+ * Extracts direct embeddable CDN URL for Google Drive files
+ * Uses lh3.googleusercontent.com which works in iFrames and cross-origin without 302 redirects or CORS/cookie blocks
+ */
+export function getDriveThumbnailUrl(url?: string, size: number = 800): string {
   if (!url) return '';
-  if (url.startsWith('data:image')) return url;
-  const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-  if (match && match[1]) {
-    return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1000`;
+  const trimmed = String(url).trim();
+  if (!trimmed || trimmed === '-') return '';
+  if (trimmed.startsWith('data:image')) return trimmed;
+
+  const fileId = extractGoogleDriveFileId(trimmed);
+  if (fileId) {
+    return `https://lh3.googleusercontent.com/d/${fileId}=w${size}`;
   }
-  return url;
+  return trimmed;
+}
+
+/**
+ * Secondary fallback URL if CDN is temporarily unavailable
+ */
+export function getDriveFallbackUrl(url?: string): string {
+  if (!url) return '';
+  const trimmed = String(url).trim();
+  if (!trimmed || trimmed === '-' || trimmed.startsWith('data:image')) return trimmed;
+
+  const fileId = extractGoogleDriveFileId(trimmed);
+  if (fileId) {
+    return `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`;
+  }
+  return trimmed;
 }
 
 /**
@@ -269,6 +307,7 @@ export async function fetchRecordsFromGoogleSheet(
 
 /**
  * Merges local records and cloud records seamlessly
+ * Preserves local images if cloud has not yet populated them
  */
 export function mergeLocalAndCloudRecords(
   localRecords: StationRecord[],
@@ -280,19 +319,35 @@ export function mergeLocalAndCloudRecords(
 
   if (cleanCloud.length === 0) return cleanLocal;
 
-  // Cloud records map
+  const localMap = new Map<string, StationRecord>();
+  cleanLocal.forEach((r) => localMap.set(r.id, r));
+
   const cloudMap = new Map<string, StationRecord>();
-  cleanCloud.forEach((r) => cloudMap.set(r.id, r));
+  // Enrich cloud records with local image data if cloud hasn't populated them yet
+  const enrichedCloud = cleanCloud.map((cloudRec) => {
+    const localMatch = localMap.get(cloudRec.id);
+    if (!localMatch) return cloudRec;
+    return {
+      ...cloudRec,
+      scaleImageUrl: cloudRec.scaleImageUrl || localMatch.scaleImageUrl,
+      craneImageUrl: cloudRec.craneImageUrl || localMatch.craneImageUrl,
+      scaleImageName: cloudRec.scaleImageName || localMatch.scaleImageName,
+      craneImageName: cloudRec.craneImageName || localMatch.craneImageName,
+    };
+  });
+
+  enrichedCloud.forEach((r) => cloudMap.set(r.id, r));
 
   // Find any local records that have not been synced yet
   const unsyncedLocal = cleanLocal.filter((r) => !r.syncedToGoogleSheet && !cloudMap.has(r.id));
 
-  // Combine unsynced local records at top, then cloud records
-  return [...unsyncedLocal, ...cleanCloud];
+  // Combine unsynced local records at top, then enriched cloud records
+  return [...unsyncedLocal, ...enrichedCloud];
 }
 
 /**
  * Merges local fallen cane records and cloud records seamlessly
+ * Preserves local images if cloud has not yet populated them
  */
 export function mergeLocalAndCloudFallenCaneRecords(
   localRecords: FallenCaneRecord[],
@@ -304,9 +359,22 @@ export function mergeLocalAndCloudFallenCaneRecords(
 
   if (cleanCloud.length === 0) return cleanLocal;
 
+  const localMap = new Map<string, FallenCaneRecord>();
+  cleanLocal.forEach((r) => localMap.set(r.id, r));
+
   const cloudMap = new Map<string, FallenCaneRecord>();
-  cleanCloud.forEach((r) => cloudMap.set(r.id, r));
+  const enrichedCloud = cleanCloud.map((cloudRec) => {
+    const localMatch = localMap.get(cloudRec.id);
+    if (!localMatch) return cloudRec;
+    return {
+      ...cloudRec,
+      imageUrl: cloudRec.imageUrl || localMatch.imageUrl,
+      imageName: cloudRec.imageName || localMatch.imageName,
+    };
+  });
+
+  enrichedCloud.forEach((r) => cloudMap.set(r.id, r));
 
   const unsyncedLocal = cleanLocal.filter((r) => !r.syncedToGoogleSheet && !cloudMap.has(r.id));
-  return [...unsyncedLocal, ...cleanCloud];
+  return [...unsyncedLocal, ...enrichedCloud];
 }

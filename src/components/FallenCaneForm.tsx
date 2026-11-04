@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { PhotoModal } from './PhotoModal';
 import { compressImageFile } from '../lib/imageUtils';
-import { getDriveThumbnailUrl } from '../lib/syncSheet';
+import { getDriveThumbnailUrl, getDriveFallbackUrl } from '../lib/syncSheet';
 
 interface FallenCaneFormProps {
   onSaveFallenCane: (record: Omit<FallenCaneRecord, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
@@ -479,6 +479,13 @@ export const FallenCaneForm: React.FC<FallenCaneFormProps> = ({
                           referrerPolicy="no-referrer"
                           className="w-[5cm] h-[4cm] object-cover group-hover:opacity-90 transition-opacity"
                           style={{ width: '5cm', height: '4cm', objectFit: 'cover' }}
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            const fallback = getDriveFallbackUrl(item.imageUrl);
+                            if (fallback && target.src !== fallback) {
+                              target.src = fallback;
+                            }
+                          }}
                         />
                         <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <Eye className="w-5 h-5 text-white" />

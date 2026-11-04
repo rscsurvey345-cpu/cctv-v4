@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Download, RotateCw, Trash2, Upload, ZoomIn, ZoomOut, ExternalLink } from 'lucide-react';
-import { getDriveThumbnailUrl } from '../lib/syncSheet';
+import { getDriveThumbnailUrl, getDriveFallbackUrl } from '../lib/syncSheet';
 
 interface PhotoModalProps {
   isOpen: boolean;
@@ -31,7 +31,7 @@ export const PhotoModal: React.FC<PhotoModalProps> = ({
   if (!isOpen) return null;
 
   const isDriveLink = imageUrl && imageUrl.includes('drive.google.com');
-  const displaySrc = getDriveThumbnailUrl(imageUrl);
+  const displaySrc = getDriveThumbnailUrl(imageUrl, 1600);
 
   const handleRotate = () => {
     setRotation((prev) => (prev + 90) % 360);
@@ -98,6 +98,13 @@ export const PhotoModal: React.FC<PhotoModalProps> = ({
                 alt={title}
                 referrerPolicy="no-referrer"
                 className="max-h-[55vh] max-w-full object-contain rounded-md shadow-lg"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  const fallback = getDriveFallbackUrl(imageUrl);
+                  if (fallback && target.src !== fallback) {
+                    target.src = fallback;
+                  }
+                }}
               />
             </div>
           ) : (

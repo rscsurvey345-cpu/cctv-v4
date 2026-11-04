@@ -22,6 +22,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { compressImageFile } from '../lib/imageUtils';
+import { getDriveThumbnailUrl, getDriveFallbackUrl } from '../lib/syncSheet';
 
 interface EditRecordModalProps {
   isOpen: boolean;
@@ -254,9 +255,17 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
               {scaleImageUrl ? (
                 <div className="relative rounded-lg overflow-hidden bg-black max-h-[140px] flex items-center justify-center">
                   <img
-                    src={scaleImageUrl}
+                    src={getDriveThumbnailUrl(scaleImageUrl, 800)}
                     alt="ตาชั่ง"
                     className="max-h-[140px] object-contain w-full"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      const fallback = getDriveFallbackUrl(scaleImageUrl);
+                      if (fallback && target.src !== fallback) {
+                        target.src = fallback;
+                      }
+                    }}
                   />
                 </div>
               ) : (
@@ -318,9 +327,17 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
               {craneImageUrl ? (
                 <div className="relative rounded-lg overflow-hidden bg-black max-h-[140px] flex items-center justify-center">
                   <img
-                    src={craneImageUrl}
+                    src={getDriveThumbnailUrl(craneImageUrl, 800)}
                     alt="เครน"
                     className="max-h-[140px] object-contain w-full"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      const fallback = getDriveFallbackUrl(craneImageUrl);
+                      if (fallback && target.src !== fallback) {
+                        target.src = fallback;
+                      }
+                    }}
                   />
                 </div>
               ) : (
