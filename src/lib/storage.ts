@@ -4,6 +4,56 @@ import { getCurrentThaiDate, STATIONS, TIME_SLOTS } from '../constants/stations'
 const STORAGE_KEY = 'sugar_mill_records_2569_70';
 const FALLEN_CANE_STORAGE_KEY = 'sugar_mill_fallen_cane_2569_70';
 const SYNC_CONFIG_KEY = 'sugar_mill_sync_config';
+const DELETED_RECORDS_KEY = 'sugar_mill_deleted_record_ids';
+const DELETED_FALLEN_KEY = 'sugar_mill_deleted_fallen_ids';
+
+export function getDeletedRecordIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(DELETED_RECORDS_KEY);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) return new Set(arr);
+    }
+  } catch (e) {
+    console.warn('Failed to load deleted record IDs', e);
+  }
+  return new Set();
+}
+
+export function addDeletedRecordId(id: string): void {
+  if (!id) return;
+  try {
+    const ids = getDeletedRecordIds();
+    ids.add(id);
+    localStorage.setItem(DELETED_RECORDS_KEY, JSON.stringify(Array.from(ids)));
+  } catch (e) {
+    console.warn('Failed to save deleted record ID', e);
+  }
+}
+
+export function getDeletedFallenCaneIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(DELETED_FALLEN_KEY);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) return new Set(arr);
+    }
+  } catch (e) {
+    console.warn('Failed to load deleted fallen cane IDs', e);
+  }
+  return new Set();
+}
+
+export function addDeletedFallenCaneId(id: string): void {
+  if (!id) return;
+  try {
+    const ids = getDeletedFallenCaneIds();
+    ids.add(id);
+    localStorage.setItem(DELETED_FALLEN_KEY, JSON.stringify(Array.from(ids)));
+  } catch (e) {
+    console.warn('Failed to save deleted fallen cane ID', e);
+  }
+}
 
 // Sample base64 SVG placeholders for Scale (ตาชั่ง), Crane (เครน), and Fallen Sugarcane (อ้อยตกหล่น)
 export const SAMPLE_SCALE_IMG =
@@ -23,11 +73,12 @@ export function getInitialRecords(): StationRecord[] {
 
 export function loadRecords(): StationRecord[] {
   try {
+    const deletedIds = getDeletedRecordIds();
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed)) {
-        // Strip out any previous sample/dummy mock records
+        // Strip out dummy mock records and deleted records
         const realRecords = parsed.filter(
           (r: StationRecord) =>
             !r.id.startsWith('rec-1') &&
@@ -36,7 +87,8 @@ export function loadRecords(): StationRecord[] {
             !r.id.startsWith('rec-4') &&
             !r.id.startsWith('rec-5') &&
             r.scaleImageUrl !== SAMPLE_SCALE_IMG &&
-            r.craneImageUrl !== SAMPLE_CRANE_IMG
+            r.craneImageUrl !== SAMPLE_CRANE_IMG &&
+            !deletedIds.has(r.id)
         );
         return realRecords;
       }
@@ -49,7 +101,8 @@ export function loadRecords(): StationRecord[] {
 
 export function saveRecords(records: StationRecord[]): void {
   try {
-    // Only save real records
+    const deletedIds = getDeletedRecordIds();
+    // Only save real records that are not deleted
     const cleanRecords = records.filter(
       (r) =>
         !r.id.startsWith('rec-1') &&
@@ -58,7 +111,8 @@ export function saveRecords(records: StationRecord[]): void {
         !r.id.startsWith('rec-4') &&
         !r.id.startsWith('rec-5') &&
         r.scaleImageUrl !== SAMPLE_SCALE_IMG &&
-        r.craneImageUrl !== SAMPLE_CRANE_IMG
+        r.craneImageUrl !== SAMPLE_CRANE_IMG &&
+        !deletedIds.has(r.id)
     );
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanRecords));
   } catch (e) {
@@ -72,16 +126,18 @@ export function getInitialFallenCaneRecords(): FallenCaneRecord[] {
 
 export function loadFallenCaneRecords(): FallenCaneRecord[] {
   try {
+    const deletedFallenIds = getDeletedFallenCaneIds();
     const saved = localStorage.getItem(FALLEN_CANE_STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed)) {
-        // Strip out any previous mock sample fallen cane records
+        // Strip out dummy mock and deleted records
         const realFallen = parsed.filter(
           (r: FallenCaneRecord) =>
             !r.id.startsWith('fallen-1') &&
             !r.id.startsWith('fallen-2') &&
-            r.imageUrl !== SAMPLE_FALLEN_CANE_IMG
+            r.imageUrl !== SAMPLE_FALLEN_CANE_IMG &&
+            !deletedFallenIds.has(r.id)
         );
         return realFallen;
       }
@@ -94,11 +150,13 @@ export function loadFallenCaneRecords(): FallenCaneRecord[] {
 
 export function saveFallenCaneRecords(records: FallenCaneRecord[]): void {
   try {
+    const deletedFallenIds = getDeletedFallenCaneIds();
     const cleanFallen = records.filter(
       (r) =>
         !r.id.startsWith('fallen-1') &&
         !r.id.startsWith('fallen-2') &&
-        r.imageUrl !== SAMPLE_FALLEN_CANE_IMG
+        r.imageUrl !== SAMPLE_FALLEN_CANE_IMG &&
+        !deletedFallenIds.has(r.id)
     );
     localStorage.setItem(FALLEN_CANE_STORAGE_KEY, JSON.stringify(cleanFallen));
   } catch (e) {

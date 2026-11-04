@@ -279,10 +279,16 @@ function doPost(e) {
     // 3. ลบข้อมูลสถานการณ์ขนถ่าย (Delete Record)
     if (action === "deleteRecord") {
       const { sheet } = getOrCreateSheet(spreadsheet);
-      const recordId = postData.id;
+      const recordId = postData.id || postData.recordId || (postData.record && (postData.record.id || postData.record.recordId));
+      if (!recordId) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: "error",
+          message: "ไม่พบรหัสที่ต้องการลบ"
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
       const data = sheet.getDataRange().getValues();
       for (let i = 1; i < data.length; i++) {
-        if (data[i][0] == recordId) {
+        if (String(data[i][0]).trim() == String(recordId).trim()) {
           sheet.deleteRow(i + 1);
           return ContentService.createTextOutput(JSON.stringify({
             status: "success",
@@ -290,6 +296,10 @@ function doPost(e) {
           })).setMimeType(ContentService.MimeType.JSON);
         }
       }
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        message: "ข้อมูลถูกลบไปแล้วหรือไม่มีในระบบ"
+      })).setMimeType(ContentService.MimeType.JSON);
     }
 
     // 4. บันทึกข้อมูลรายงานอ้อยตกหล่น (Add Fallen Cane Record)
@@ -334,10 +344,16 @@ function doPost(e) {
     // 5. ลบรายงานอ้อยตกหล่น (Delete Fallen Cane Record)
     if (action === "deleteFallenCaneRecord") {
       const fallenSheet = getOrCreateFallenCaneSheet(spreadsheet);
-      const recordId = postData.id;
+      const recordId = postData.id || postData.recordId || (postData.record && (postData.record.id || postData.record.recordId));
+      if (!recordId) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: "error",
+          message: "ไม่พบรหัสที่ต้องการลบ"
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
       const data = fallenSheet.getDataRange().getValues();
       for (let i = 1; i < data.length; i++) {
-        if (data[i][0] == recordId) {
+        if (String(data[i][0]).trim() == String(recordId).trim()) {
           fallenSheet.deleteRow(i + 1);
           return ContentService.createTextOutput(JSON.stringify({
             status: "success",
@@ -345,6 +361,10 @@ function doPost(e) {
           })).setMimeType(ContentService.MimeType.JSON);
         }
       }
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        message: "รายงานถูกลบไปแล้วหรือไม่มีในระบบ"
+      })).setMimeType(ContentService.MimeType.JSON);
     }
     
     return ContentService.createTextOutput(JSON.stringify({

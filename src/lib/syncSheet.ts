@@ -1,6 +1,11 @@
 import { StationRecord, StatusType, FallenCaneRecord } from '../types';
 import { THAI_SHORT_MONTHS } from '../constants/stations';
-import { DEFAULT_SCRIPT_WEBHOOK_URL, TARGET_SPREADSHEET_ID } from './storage';
+import {
+  DEFAULT_SCRIPT_WEBHOOK_URL,
+  TARGET_SPREADSHEET_ID,
+  getDeletedRecordIds,
+  getDeletedFallenCaneIds,
+} from './storage';
 
 /**
  * Extracts direct thumbnail URL for Google Drive view links
@@ -213,12 +218,20 @@ export async function fetchRecordsFromGoogleSheet(
 
     const json = await res.json();
     if (json.status === 'success') {
+      const deletedIds = getDeletedRecordIds();
       const parsedRecords: StationRecord[] = Array.isArray(json.data)
-        ? json.data.map((row: any, i: number) => parseSheetRowToRecord(row, i)).reverse()
+        ? json.data
+            .map((row: any, i: number) => parseSheetRowToRecord(row, i))
+            .filter((r: StationRecord) => !deletedIds.has(r.id))
+            .reverse()
         : [];
 
+      const deletedFallenIds = getDeletedFallenCaneIds();
       const parsedFallenCane: FallenCaneRecord[] = Array.isArray(json.fallenCaneData)
-        ? json.fallenCaneData.map((row: any, i: number) => parseFallenCaneSheetRowToRecord(row, i)).reverse()
+        ? json.fallenCaneData
+            .map((row: any, i: number) => parseFallenCaneSheetRowToRecord(row, i))
+            .filter((r: FallenCaneRecord) => !deletedFallenIds.has(r.id))
+            .reverse()
         : [];
 
       return {
@@ -261,17 +274,21 @@ export function mergeLocalAndCloudRecords(
   localRecords: StationRecord[],
   cloudRecords: StationRecord[]
 ): StationRecord[] {
-  if (cloudRecords.length === 0) return localRecords;
+  const deletedIds = getDeletedRecordIds();
+  const cleanLocal = localRecords.filter((r) => !deletedIds.has(r.id));
+  const cleanCloud = cloudRecords.filter((r) => !deletedIds.has(r.id));
+
+  if (cleanCloud.length === 0) return cleanLocal;
 
   // Cloud records map
   const cloudMap = new Map<string, StationRecord>();
-  cloudRecords.forEach((r) => cloudMap.set(r.id, r));
+  cleanCloud.forEach((r) => cloudMap.set(r.id, r));
 
   // Find any local records that have not been synced yet
-  const unsyncedLocal = localRecords.filter((r) => !r.syncedToGoogleSheet && !cloudMap.has(r.id));
+  const unsyncedLocal = cleanLocal.filter((r) => !r.syncedToGoogleSheet && !cloudMap.has(r.id));
 
   // Combine unsynced local records at top, then cloud records
-  return [...unsyncedLocal, ...cloudRecords];
+  return [...unsyncedLocal, ...cleanCloud];
 }
 
 /**
@@ -281,11 +298,15 @@ export function mergeLocalAndCloudFallenCaneRecords(
   localRecords: FallenCaneRecord[],
   cloudRecords: FallenCaneRecord[]
 ): FallenCaneRecord[] {
-  if (cloudRecords.length === 0) return localRecords;
+  const deletedFallenIds = getDeletedFallenCaneIds();
+  const cleanLocal = localRecords.filter((r) => !deletedFallenIds.has(r.id));
+  const cleanCloud = cloudRecords.filter((r) => !deletedFallenIds.has(r.id));
+
+  if (cleanCloud.length === 0) return cleanLocal;
 
   const cloudMap = new Map<string, FallenCaneRecord>();
-  cloudRecords.forEach((r) => cloudMap.set(r.id, r));
+  cleanCloud.forEach((r) => cloudMap.set(r.id, r));
 
-  const unsyncedLocal = localRecords.filter((r) => !r.syncedToGoogleSheet && !cloudMap.has(r.id));
-  return [...unsyncedLocal, ...cloudRecords];
+  const unsyncedLocal = cleanLocal.filter((r) => !r.syncedToGoogleSheet && !cloudMap.has(r.id));
+  return [...unsyncedLocal, ...cleanCloud];
 }

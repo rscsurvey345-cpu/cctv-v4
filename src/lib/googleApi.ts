@@ -533,3 +533,80 @@ export async function fetchFallenCaneRecordsFromGoogleSheetApi(
     return [];
   }
 }
+
+/**
+ * Direct deletion of a row from a Google Sheet tab by Record ID
+ */
+export async function deleteRecordFromGoogleSheetDirect(
+  accessToken: string,
+  spreadsheetId: string,
+  recordId: string,
+  tabTitle: string
+): Promise<boolean> {
+  if (!accessToken || !spreadsheetId || !recordId) return false;
+  try {
+    // 1. Get spreadsheet metadata to find sheetId (numeric gid)
+    const metaRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    if (!metaRes.ok) return false;
+    const metaJson = await metaRes.json();
+    const sheetObj = metaJson.sheets?.find((s: any) => s.properties?.title === tabTitle);
+    if (!sheetObj || sheetObj.properties?.sheetId === undefined) return false;
+    const sheetNumericId = sheetObj.properties.sheetId;
+
+    // 2. Fetch Column A values to find matching row
+    const valuesRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(
+        tabTitle + '!A:A'
+      )}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (!valuesRes.ok) return false;
+    const valuesJson = await valuesRes.json();
+    const rows = valuesJson.values;
+    if (!rows || !Array.isArray(rows)) return false;
+
+    let rowIndex = -1;
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i] && String(rows[i][0]).trim() === String(recordId).trim()) {
+        rowIndex = i; // 0-based index
+        break;
+      }
+    }
+    if (rowIndex <= 0) return false; // Don't delete header row (index 0) or unfound
+
+    // 3. Send batchUpdate to delete dimension
+    const delRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requests: [
+            {
+              deleteDimension: {
+                range: {
+                  sheetId: sheetNumericId,
+                  dimension: 'ROWS',
+                  startIndex: rowIndex,
+                  endIndex: rowIndex + 1,
+                },
+              },
+            },
+          ],
+        }),
+      }
+    );
+    return delRes.ok;
+  } catch (e) {
+    console.warn('deleteRecordFromGoogleSheetDirect error:', e);
+    return false;
+  }
+}

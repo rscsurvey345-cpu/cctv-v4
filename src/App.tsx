@@ -7,6 +7,8 @@ import {
   saveFallenCaneRecords,
   loadSyncConfig,
   saveSyncConfig,
+  addDeletedRecordId,
+  addDeletedFallenCaneId,
   DEFAULT_SCRIPT_WEBHOOK_URL,
   TARGET_SPREADSHEET_ID,
 } from './lib/storage';
@@ -32,6 +34,7 @@ import {
   getSpreadsheetParentFolderId,
   appendFallenCaneRecordToGoogleSheetDirect,
   fetchFallenCaneRecordsFromGoogleSheetApi,
+  deleteRecordFromGoogleSheetDirect,
 } from './lib/googleApi';
 import { User } from 'firebase/auth';
 import { FileSpreadsheet, HardDrive, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -269,14 +272,22 @@ export default function App() {
   };
 
   // Sync to Google Apps Script Webhook (Permanent connection)
-  const syncToAppsScriptWebhook = async (action: string, record: any): Promise<boolean> => {
+  const syncToAppsScriptWebhook = async (action: string, payload: any): Promise<boolean> => {
     const targetWebhook = syncConfig.scriptWebhookUrl || DEFAULT_SCRIPT_WEBHOOK_URL;
     if (!targetWebhook) return false;
     try {
+      const id = typeof payload === 'string' ? payload : (payload?.id || payload?.recordId);
+      const record = typeof payload === 'object' ? payload : { id };
+      const bodyPayload = {
+        action,
+        id: id || (record && record.id) || '',
+        recordId: id || (record && record.id) || '',
+        record: record || { id: id || '' },
+      };
       await fetch(targetWebhook, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action, record }),
+        body: JSON.stringify(bodyPayload),
         mode: 'no-cors',
       });
       return true;
@@ -354,25 +365,44 @@ export default function App() {
     showNotification(`อัปเดตข้อมูล ${updated.stationName} สำเร็จ`);
   };
 
-  // Delete record handler
-  const handleDeleteRecord = (id: string) => {
+  // Delete record handler - permanently removes from sheet, cloud, and local state
+  const handleDeleteRecord = async (id: string) => {
     const target = records.find((r) => r.id === id);
+    addDeletedRecordId(id);
     const newRecords = records.filter((r) => r.id !== id);
     setRecords(newRecords);
     saveRecords(newRecords);
 
+    // 1. Sync delete to Google Apps Script Webhook with explicit ID
     const targetWebhook = syncConfig.scriptWebhookUrl || DEFAULT_SCRIPT_WEBHOOK_URL;
     if (targetWebhook) {
-      syncToAppsScriptWebhook('deleteRecord', { id });
-      setTimeout(() => {
-        refreshFromGoogleSheet(false);
-      }, 2000);
+      await syncToAppsScriptWebhook('deleteRecord', id);
+    }
+
+    // 2. Direct Google Sheets API deletion if authenticated
+    const currentToken = accessToken || (await getAccessToken());
+    if (currentToken) {
+      try {
+        await deleteRecordFromGoogleSheetDirect(
+          currentToken,
+          TARGET_SPREADSHEET_ID,
+          id,
+          'ข้อมูลสถานการณ์ขนถ่าย'
+        );
+      } catch (sheetApiErr) {
+        console.warn('Direct Google Sheet API delete record:', sheetApiErr);
+      }
     }
 
     showNotification(
       `ลบข้อมูล ${target ? target.stationName : ''} เรียบร้อยแล้ว`,
       'info'
     );
+
+    // Delayed refresh to ensure cloud state is aligned without reviving deleted row
+    setTimeout(() => {
+      refreshFromGoogleSheet(false);
+    }, 2500);
   };
 
   // Save Fallen Sugarcane Record handler
@@ -464,24 +494,42 @@ export default function App() {
   };
 
   // Delete Fallen Sugarcane Record handler
-  const handleDeleteFallenCaneRecord = (id: string) => {
+  const handleDeleteFallenCaneRecord = async (id: string) => {
     const target = fallenCaneRecords.find((r) => r.id === id);
+    addDeletedFallenCaneId(id);
     const newRecords = fallenCaneRecords.filter((r) => r.id !== id);
     setFallenCaneRecords(newRecords);
     saveFallenCaneRecords(newRecords);
 
+    // 1. Sync delete to Google Apps Script Webhook with explicit ID
     const targetWebhook = syncConfig.scriptWebhookUrl || DEFAULT_SCRIPT_WEBHOOK_URL;
     if (targetWebhook) {
-      syncToAppsScriptWebhook('deleteFallenCaneRecord', { id });
-      setTimeout(() => {
-        refreshFromGoogleSheet(false);
-      }, 2000);
+      await syncToAppsScriptWebhook('deleteFallenCaneRecord', id);
+    }
+
+    // 2. Direct Google Sheets API deletion if authenticated
+    const currentToken = accessToken || (await getAccessToken());
+    if (currentToken) {
+      try {
+        await deleteRecordFromGoogleSheetDirect(
+          currentToken,
+          TARGET_SPREADSHEET_ID,
+          id,
+          'รายงานอ้อยตกหล่น'
+        );
+      } catch (sheetApiErr) {
+        console.warn('Direct Google Sheet API delete fallen cane record:', sheetApiErr);
+      }
     }
 
     showNotification(
       `ลบรายงานอ้อยตกหล่น ${target ? target.stationName : ''} เรียบร้อยแล้ว`,
       'info'
     );
+
+    setTimeout(() => {
+      refreshFromGoogleSheet(false);
+    }, 2500);
   };
 
   // Batch sync all unsynced records to Google
